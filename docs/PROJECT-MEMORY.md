@@ -36,7 +36,7 @@ These are initial working decisions for the roadmap, not additional user-supplie
 
 P0-01 is implemented for REQ-06/REQ-09 and EXT-01: one-second idle / five-second maximum autosave, bounded backoff, request IDs, server response revisions, same-tab draft recovery, conflict stop/review and canonical duplicate submission receipts. Recovery uses sessionStorage keyed by device/attempt, expires at the deadline, and is cleared on completion, authentication loss or fresh launch. It does not survive closing the tab, is not encrypted at rest, and is not a late-submission channel. No staff override was added.
 
-Next implementation task: **P0-02 - monitoring lifecycle and native Windows acceptance**. P0-03 retains clean-environment/CI and native PostgreSQL validation work.
+P0-02 now has single-host native Windows screen lifecycle acceptance and fixes; second-device LAN, packaged lifecycle, real backend restart with an active agent and optional camera acceptance remain open. The owner confirmed only one Windows computer is available. Continue independent P0-03 clean-environment/CI work; native PostgreSQL 16.15 API/response-browser tests have passed in an isolated cluster. Detailed evidence and limits are in PROJECT-STATUS.md.
 
 Handoff assignment: the project owner asked to publish all work so their friend can continue P0-02 onward while the owner works on a separate area. Keep the requirement IDs and acceptance evidence current, and coordinate changes through the shared repository.
 

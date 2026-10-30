@@ -4,7 +4,7 @@ import unittest
 import threading
 from pathlib import Path
 sys.path.insert(0, str(Path('agent').resolve()))
-from agent import ConsentGate
+from monitoring_lifecycle import ConsentGate
 
 class GateTests(unittest.TestCase):
     def test_consent_session_and_lease_all_required(self):

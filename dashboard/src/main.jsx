@@ -165,6 +165,8 @@ function App() {
           : current,
       ),
     );
+    s.on("disconnect",()=>setPreviews({}));
+    s.on("connect_error",()=>setPreviews({}));
     s.on("preview", (p) => setPreviews((old) => ({ ...old, [p.deviceId]: p })));
     s.on("clear-previews", () => setPreviews({}));
     s.on("monitoring-stopped", ({ deviceId }) => {

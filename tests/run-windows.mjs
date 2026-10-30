@@ -2,12 +2,12 @@ import http from "node:http";
 import { spawn } from "node:child_process";
 import { randomUUID, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { PGlite } from "@electric-sql/pglite";
+import {testDatabase} from "./test-database.mjs";
 import { migrate } from "../server/db.js";
 import { createApp } from "../server/app.js";
 import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
-const db = new PGlite();
+const db = await testDatabase();
 await migrate(db);
 const email = "validation@examos.local",
   password = randomBytes(24).toString("hex");
@@ -16,7 +16,7 @@ await db.query("INSERT INTO teachers VALUES ($1,$2,$3)", [
   email,
   await bcrypt.hash(password, 4),
 ]);
-const { app, attach } = createApp(db, randomBytes(48).toString("hex"));
+const { app, attach, drain } = createApp(db, randomBytes(48).toString("hex"));
 const server = http.createServer(app),
   live = attach(server);
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
@@ -75,6 +75,7 @@ assert.equal(
 await browser.close();
 await new Promise((r) => live.close(r));
 server.close();
-await db.close();
+await drain();
+  await db.close();
 process.exitCode = code ?? 1;
 if (browserError) throw browserError;

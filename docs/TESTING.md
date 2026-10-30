@@ -20,9 +20,9 @@ npm run build
 npm test
 ```
 
-The current Node suite contains eight tests across response synchronization, enrollment, examinations, proctoring and authenticated workflow files. PGlite fixtures are isolated. Leave `TEST_DATABASE_URL` unset for the default embedded-database run. If set, it must identify a dedicated disposable test database: currently the workflow test uses it, while other fixtures still use PGlite. Setting this variable does not establish native PostgreSQL coverage of the whole suite.
+The current Node suite contains nine tests across response synchronization, enrollment, examinations, proctoring and authenticated workflow files. PGlite fixtures are isolated. Leave `TEST_DATABASE_URL` unset for the default embedded-database run. For native coverage, set `TEST_DATABASE_URL` to a dedicated database whose name begins `examos_test` and set `EXAMOS_TEST_DATABASE_DISPOSABLE=1`. Every fixture then gets a unique schema, migrated and removed independently. These tests refuse other database names. Never use a live application database.
 
-The test fixture generator currently rewrites `tests/fixtures/mathematics-question-paper.pdf`. Use a disposable test checkout or preserve its pre-run bytes and restore only test-generated changes afterward. Do not overwrite a pre-existing user edit. P0-03 moves generated fixtures outside tracked source.
+The PDF generator now returns isolated in-memory bytes without rewriting tracked files. The checked-in mathematical PDF is a static browser-upload asset. Generated reports/certificates/databases remain under ignored paths.
 
 ## Browser workflows
 
@@ -53,7 +53,7 @@ After provisioning the documented Windows Python environment:
 .venv/Scripts/python.exe tests/evidence_gate_test.py
 ```
 
-These logic tests do not start a camera, but their current import paths require installed Windows/media dependencies. P0-03 separates the pure rules from those dependencies.
+These pure logic tests import only the standard library and do not require Windows, camera or media dependencies.
 
 The following native scripts launch actual agent/browser processes and may capture the visible desktop. Run them only on the intended test desktop with private content closed and with authorization for that capture:
 
@@ -68,7 +68,7 @@ For packaged camera/snapshot/silent-clip acceptance, follow [CURRENT-VERIFICATIO
 
 ## TLS, database and deployment checks
 
-- `tests/tls.mjs` uses test certificates under `data/tls-test` and a hardcoded Windows project Python path. Provision its isolated prerequisites before execution; never reuse private production keys as fixtures.
+- `tests/tls.mjs` generates isolated trusted/expired test certificates under `data/tmp`. Use the project Python environment or set `EXAMOS_MEDIA_PYTHON`. It checks trusted HTTPS/polling/WSS and rejects untrusted/expired certificates; never reuse production keys.
 - Verify a trusted CA succeeds and an untrusted/expired certificate fails. Local HTTPS/WSS results do not replace a two-machine LAN/certificate-distribution test.
 - Native PostgreSQL release acceptance must exercise migrations, enrollment, attempts, evidence, concurrency and restore, not just `SELECT 1` or a single workflow test.
 - Backup/restore drills and installer/update checks use isolated environments and compare actual preserved records, source/build hashes and permissions.
@@ -97,3 +97,9 @@ Record date, source commit/build hash, requirement/backlog IDs, environment, exa
 Run `node tests/answer-browser.mjs` after building for actual page failure checks. On a host with system Chrome rather than Playwright Chromium, set `EXAMOS_TEST_BROWSER=chrome` in the test process environment. It aborts isolated test HTTP requests, exercises same-tab reload recovery and continuous editing, and checks cleanup and explicit conflict resolution. No camera or live examination is accessed.
 
 Migration 007 adds response revisions and last mutation IDs. Updated save/submit clients must send `revision` and `mutationId`; refresh existing student pages during a planned upgrade outside active examinations. Draft recovery is same-tab sessionStorage only, not encrypted disk persistence or late submission.
+
+## P0-02 visible native Windows acceptance
+
+Close private desktop content before running. This test shares actual primary-screen pixels and executable names, but does not open the camera or store screen images. Explicitly opt in with `$env:EXAMOS_NATIVE_TEST_APPROVED='visible-screen-lifecycle'`, then run `node tests/windows-lifecycle.mjs` (or `npm run test:windows-lifecycle`). Provision the project Python 3.13 environment and Playwright browser first. It uses an isolated test backend, credential path, teacher and loopback network-fault proxy; it never connects to the running institution database.
+
+Checks include real consent/stop/minimize/close, a delayed actual consent acknowledgement, loopback transport interruption, no capture before fresh consent after reconnect, duplicate sockets, configured examination-window expiry and revocation. It records eligibility-stop observation and native MSS close time separately. Tolerance for observed network eligibility stop is six seconds plus 0.75 seconds of scheduling/sampling tolerance. This script is source-agent acceptance; the full packaged EXE, physical LAN and webcam gates remain separate.

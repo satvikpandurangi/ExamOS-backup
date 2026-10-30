@@ -33,6 +33,7 @@ export function createApp(db, secret) {
   const online = new Map(),
     locks = new Map();
   let io;
+  let ticking=false;
   // Serialize session transitions and device messages per teacher, including across sockets.
   const serialize = (teacher, fn) => {
     const previous = locks.get(teacher) || Promise.resolve();
@@ -381,7 +382,6 @@ export function createApp(db, secret) {
       });
   });
   function attach(server) {
-    let ticking = false;
     const examTimer = setInterval(async () => {
       if (ticking) return;
       ticking = true;
@@ -390,7 +390,7 @@ export function createApp(db, secret) {
         for (const [deviceId, o] of online) {
           if (Date.now() - o.lastSeen > 8000 && !o.leaseExpiredReported) {
             await serialize(o.teacher, async () => {
-              if (Date.now() - o.lastSeen <= 8000) return;
+              if (online.get(deviceId)!==o || Date.now() - o.lastSeen <= 8000) return;
               o.leaseExpiredReported = true;
               await db.query(
                 "UPDATE exam_attempts SET focus_consent=false WHERE device_id=$1 AND status='started'",
@@ -532,6 +532,8 @@ export function createApp(db, secret) {
             session: s || null,
             serverNow: new Date().toISOString(),
             leaseSeconds: 8,
+            screenConsented: !!s && o.consented===s.id,
+            cameraConsented: !!s && o.cameraConsent===s.id,
             exam,
             proctoring: await proctor.settings(d.teacher_id),
           });
@@ -646,7 +648,7 @@ export function createApp(db, secret) {
             reason: "Application outside allowed list; teacher review required",
           });
         } // Re-check session after awaited writes before forwarding pixels.
-        if ((await active(d.teacher_id))?.id === s.id && o.consented === s.id)
+        if ((await active(d.teacher_id))?.id === s.id && o.consented === s.id && socket.connected && online.get(d.id)===o && Date.now()-o.lastSeen<=8000)
           io.to("teacher:" + d.teacher_id).emit("preview", {
             deviceId: d.id,
             sessionId: s.id,
@@ -658,27 +660,19 @@ export function createApp(db, secret) {
       });
       socket.on("disconnect", () => {
         if (online.get(d.id) !== o) return;
+        o.consented=null;
+        o.app=null;
+        proctor.clearCamera(o);
         online.delete(d.id);
         io.to("teacher:" + d.teacher_id).emit("proctor-refresh");
         io.to("teacher:" + d.teacher_id).emit("device-offline", d.id);
-        active(d.teacher_id)
-          .then((s) =>
-            serialize(d.teacher_id, async () => {
-              await db.query(
-                "UPDATE camera_check_requests SET status='failed',error='Student agent disconnected before capture' WHERE device_id=$1 AND status='queued'",
-                [d.id],
-              );
-              await db.query(
-                "UPDATE exam_attempts SET focus_consent=false WHERE device_id=$1 AND status='started'",
-                [d.id],
-              );
-              if (s)
-                await event(d.teacher_id, s.id, d.id, "connection_lost", {
-                  reason: "Connection lost; no misconduct determination",
-                });
-            }),
-          )
-          .catch(console.error);
+        serialize(d.teacher_id, async () => {
+          if(online.has(d.id)) return;
+          const s=await active(d.teacher_id);
+          await db.query("UPDATE camera_check_requests SET status='failed',error='Student agent disconnected before capture' WHERE device_id=$1 AND status='queued'",[d.id]);
+          await db.query("UPDATE exam_attempts SET focus_consent=false WHERE device_id=$1 AND status='started'",[d.id]);
+          if(s) await event(d.teacher_id,s.id,d.id,'connection_lost',{reason:'Connection lost; no misconduct determination'});
+        }).catch(console.error);
         emit(d.teacher_id);
       });
       active(d.teacher_id)
@@ -688,5 +682,11 @@ export function createApp(db, secret) {
     });
     return io;
   }
-  return { app, attach, online };
+  async function drain() {
+    while(locks.size || ticking) {
+      await Promise.allSettled([...locks.values()]);
+      if(ticking) await new Promise(r=>setTimeout(r,5));
+    }
+  }
+  return { app, attach, online, drain };
 }

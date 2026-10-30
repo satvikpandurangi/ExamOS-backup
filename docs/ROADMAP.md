@@ -1,6 +1,6 @@
 # Product roadmap
 
-Last planned: 30 October 2026. Baseline source: `300a8eb`. P0-01 is implemented with the tab-scoped recovery boundary recorded in PROJECT-STATUS.md; other items remain planned. Track acceptance against [REQUIREMENTS.md](REQUIREMENTS.md), with evidence in [PROJECT-STATUS.md](PROJECT-STATUS.md).
+Last planned: 30 October 2026. Baseline source: `300a8eb`. P0-01 is implemented with the tab-scoped recovery boundary recorded in PROJECT-STATUS.md; P0-02 has single-host native Windows repairs/acceptance and open physical-device/packaged checks; P0-03 is in progress. Other items remain planned. Track acceptance against [REQUIREMENTS.md](REQUIREMENTS.md), with evidence in [PROJECT-STATUS.md](PROJECT-STATUS.md).
 
 ## Priority decision
 
@@ -47,7 +47,7 @@ Acceptance:
 
 Dependencies: none. Do not redesign the rest of the student page in this task.
 
-### P0-02 — Monitoring lifecycle and native Windows acceptance
+### P0-02 — Monitoring lifecycle and native Windows acceptance (partial)
 
 Requirements: REQ-01, REQ-03, REQ-06, REQ-09, REQ-10; EXT-02 where existing camera behavior is repaired.
 
@@ -66,7 +66,7 @@ Acceptance:
 
 Dependencies: P0-01 for a complete examination flow. Protocol-only regression checks can run earlier.
 
-### P0-03 — Reproducible development and regression gates
+### P0-03 — Reproducible development and regression gates (in progress)
 
 Requirements: REQ-01, REQ-06, REQ-09, REQ-10, REQ-11.
 
