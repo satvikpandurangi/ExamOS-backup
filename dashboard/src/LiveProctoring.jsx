@@ -6,6 +6,8 @@ export default function LiveProctoring({
   onCloseIncident,
   onPendingCount,
   mode = "all",
+  reviewQuery = "",
+  onOpenControls,
   onOpenEvidence,
 }) {
   const [data, setData] = useState(null),
@@ -17,6 +19,7 @@ export default function LiveProctoring({
     [checkRequestId, setCheckRequestId] = useState(null),
     [historyOffset, setHistoryOffset] = useState(0),
     [historyTotal, setHistoryTotal] = useState(0);
+  useEffect(() => setHistoryOffset(0), [reviewQuery]);
   useEffect(() => {
     if (!["incidents", "all"].includes(mode)) {
       setDetails(null);
@@ -40,7 +43,10 @@ export default function LiveProctoring({
     api("/live")
       .then(async (x) => {
         if (mode === "incidents") {
-          const history = await api("/incidents?offset=" + historyOffset);
+          const filters = new URLSearchParams(reviewQuery);
+          const history = await api(
+            "/incidents?offset=" + historyOffset + "&" + filters,
+          );
           x.events = history.events;
           setHistoryTotal(history.total);
         }
@@ -61,7 +67,7 @@ export default function LiveProctoring({
     refresh();
     const id = setInterval(refresh, 5000);
     return () => clearInterval(id);
-  }, [token, revision, mode, historyOffset, checkRequestId]);
+  }, [token, revision, mode, historyOffset, checkRequestId, reviewQuery]);
   useEffect(
     () => () => {
       if (evidence) URL.revokeObjectURL(evidence.url);
@@ -74,17 +80,24 @@ export default function LiveProctoring({
         .then(setDetails)
         .catch((e) => setError(e.message));
   }, [selectedIncident, token]);
+
   useEffect(() => {
-    if (!details || details.clip_status !== "pending") return;
-    const id = setInterval(
+    if (!details) return;
+    let active = true;
+    const timer = setInterval(
       () =>
         api("/events/" + details.id)
-          .then(setDetails)
-          .catch((e) => setError(e.message)),
+          .then((value) => {
+            if (active) setDetails(value);
+          })
+          .catch(() => {}),
       2000,
     );
-    return () => clearInterval(id);
-  }, [details?.id, details?.clip_status]);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [details?.id, token]);
   const run = async (fn) => {
     try {
       setError("");
@@ -123,6 +136,12 @@ export default function LiveProctoring({
         Detection errors and disconnections are never a finding of misconduct.
         No gaze, attention, emotion, or identity analysis.
       </p>
+      {mode === "incidents" && reviewQuery && (
+        <p>
+          Filtered student/session review.{" "}
+          <a href="#/incidents">Show all incidents</a>
+        </p>
+      )}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -420,7 +439,7 @@ export default function LiveProctoring({
                         <option value="requires_investigation">
                           Requires Investigation
                         </option>
-                        <option value="dismissed">Dismissed (legacy)</option>
+                        <option value="dismissed">Ignore / dismiss</option>
                       </select>
                     </label>
                     <button className="secondary">
@@ -464,6 +483,16 @@ export default function LiveProctoring({
           <p>
             {details.label} · {new Date(details.observed_at).toLocaleString()}
           </p>
+          <button
+            className="secondary"
+            onClick={() => {
+              setDetails(null);
+              onCloseIncident?.();
+              onOpenControls?.(details.session_id);
+            }}
+          >
+            Open examination progress and manual controls
+          </button>
           <p>
             Student ID: {details.device_id}
             <br />
@@ -477,6 +506,56 @@ export default function LiveProctoring({
               ? (details.detail.confidence * 100).toFixed(1) + "%"
               : "Not available — no confidence of absence is inferred"}
           </p>
+          {details.detail.app && (
+            <p>Observed executable: {details.detail.app}</p>
+          )}
+          {error && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
+          {checkMessage && <p role="status">{checkMessage}</p>}
+          <button
+            className="secondary"
+            onClick={() =>
+              run(async () => {
+                const result = await api(
+                  "/devices/" + details.device_id + "/camera-check",
+                  { incidentId: details.id },
+                );
+                setCheckMessage(
+                  result.message +
+                    " This camera check is linked to the selected incident; it is captured after the event.",
+                );
+              })
+            }
+          >
+            Request consented camera snapshot for this incident
+          </button>
+          <p>
+            A camera snapshot requires an active camera and separate snapshot
+            consent. This does not save the student’s screen or prove
+            misconduct.
+          </p>
+          {details.relatedEvidence?.map((asset) => (
+            <div key={asset.id}>
+              <p>
+                Linked teacher-requested {asset.kind}, captured{" "}
+                {new Date(asset.captured_at).toLocaleString()} after the
+                original event.
+              </p>
+              {asset.status === "available" &&
+              new Date(asset.expires_at) > new Date() ? (
+                <PrivateMedia
+                  token={token}
+                  evidenceId={asset.id}
+                  video={asset.kind === "clip"}
+                />
+              ) : (
+                <p>Linked evidence is deleted or expired.</p>
+              )}
+            </div>
+          ))}
           {details.has_evidence ? (
             <PrivateMedia token={token} id={details.id} />
           ) : (
