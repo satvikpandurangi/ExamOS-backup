@@ -24,7 +24,52 @@ The current Node suite contains test files across response synchronization, enro
 
 The PDF generator now returns isolated in-memory bytes without rewriting tracked files. The checked-in mathematical PDF is a static browser-upload asset. Generated reports/certificates/databases remain under ignored paths.
 
-## Browser workflows
+## Cheating detection and suspicious behavior
+
+These checks validate the gaze/attention monitoring and admin control features.
+
+### Node unit tests
+
+```powershell
+npm test -- --grep "attention"
+```
+
+The test suite includes `tests/exam-controls.test.js` and `tests/exam-controls.test.js` which now also cover suspicious behavior event recording and review. Run the full test suite with `npm test` to verify.
+
+```powershell
+node tests/gate_test.py
+node tests/evidence_gate_test.py
+``` 
+These pure logic tests import only the standard library and do not require Windows, camera or media dependencies. Note: the attention monitor tests use synthetic frames and fixture data; they do not substitute actual webcam acceptance.
+
+### Browser workflows
+
+After building the dashboard and provisioning the matching Playwright browser:
+
+```powershell
+node tests/policy-review-browser.mjs
+EXAMOS_TEST_BROWSER=chrome
+```
+
+The policy review browser test covers:
+- Gaze/attention anomaly detection from the student agent
+- Suspicious behavior event rendering in the teacher dashboard
+- Admin review and classification (ignore / flag / investigate)
+- Freeze and end controls for flagged attempts
+- Linked evidence/snapshot association
+
+Set `EXAMOS_TEST_ARTIFACT_DIR` for private screenshots. The snapshot is a labeled codec fixture, not actual webcam evidence. See EVENT-REVIEW.md for the full contract and deployment limits.
+
+### Admin API integration checks
+
+- Build the dashboard and server: `npm ci && npm run build`
+- Ensure migration 010_suspicious_behavior.sql has been applied
+- Verify suspicious events flow from agent → server → dashboard
+- Test admin review: ignore, flag, and investigate actions
+- Test freeze/end control integration with exam controls
+- Validate that audit records are persisted for all admin actions
+
+## Agent logic and Windows acceptance
 
 After building the dashboard and provisioning the matching Playwright browser:
 

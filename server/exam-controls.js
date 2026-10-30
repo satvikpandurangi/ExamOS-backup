@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { createSuspiciousBehaviorStore } from "./suspicious_behavior.js";
 const uuid = (value) =>
   typeof value === "string" &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
@@ -13,6 +14,9 @@ export function installExamControls({
   reconcile,
   onAttemptFinished,
 }) {
+  // Install suspicious behavior store
+  const suspiciousStore = createSuspiciousBehaviorStore(db);
+
   teacher.post(
     "/sessions/:id/attempts/:attemptId/control",
     route(async (req, res) => {
@@ -108,5 +112,45 @@ export function installExamControls({
       emit(req.teacher);
       res.json({ ok: true, receipt, duplicate: false });
     }),
+  );
+
+  // Add admin control endpoints for suspicious behavior
+  teacher.post(
+    "/admin/suspicious/review",
+    route(async (req, res) => {
+      const { eventId, teacherId, review, action } = req.body;
+      if (!eventId || !teacherId || !review || !action) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      try {
+        const result = await suspiciousStore.review({
+          eventId,
+          teacherId,
+          review,
+          action,
+        });
+        return res.json(result);
+      } catch (error) {
+        return res.status(400).json({ error: error.message });
+      }
+    })
+  );
+
+  teacher.get(
+    "/admin/suspicious/events",
+    route(async (req, res) => {
+      const { sessionId, teacherId, unreviewedOnly, category } = req.query;
+      try {
+        const result = await suspiciousStore.listBySession(
+          sessionId,
+          {
+            unreviewedOnly: unreviewedOnly === "true",
+            category,
+          });
+        return res.json(result);
+      } catch (error) {
+        return res.status(400).json({ error: error.message });
+      }
+    })
   );
 }
