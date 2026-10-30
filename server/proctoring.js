@@ -6,6 +6,10 @@ import { installEvidence } from "./evidence.js";
 export const PROCTOR_CATEGORIES = {
   camera_check: "Student-authorized camera check (not an alert)",
   phone_detected: "Possible mobile phone detected",
+  book_detected: "Possible book or study material detected",
+  laptop_detected: "Possible unauthorized secondary device detected",
+  looking_away: "Suspicious gaze: looking away from screen",
+  suspicious_behavior: "Suspicious behavior detected during examination",
   no_person_detected: "No person detected in frame",
   multiple_people: "Multiple people visible",
   camera_obstructed: "Camera image dark or obstructed",
@@ -20,6 +24,10 @@ export const PROCTOR_CATEGORIES = {
 const cameraCategories = new Set([
   "camera_check",
   "phone_detected",
+  "book_detected",
+  "laptop_detected",
+  "looking_away",
+  "suspicious_behavior",
   "no_person_detected",
   "multiple_people",
   "camera_obstructed",
@@ -130,8 +138,11 @@ export function installProctoring({
     for (const k of [
       "personCount",
       "phoneCount",
+      "bookCount",
+      "laptopCount",
       "confidence",
       "seconds",
+      "duration",
       "mode",
     ]) {
       const v = p.detail?.[k];
