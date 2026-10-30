@@ -13,10 +13,10 @@ export function createSuspiciousBehaviorStore(db) {
     async recordEvent({ sessionId, deviceId, attemptId, category, severity, detail, snapshotId }) {
       const result = await db.query(
         `INSERT INTO suspicious_behavior_events
-         (session_id, device_id, attempt_id, category, severity, detail, snapshot_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         (id, session_id, device_id, attempt_id, category, severity, detail, snapshot_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING *`,
-        [sessionId, deviceId, attemptId, category, severity, JSON.stringify(detail), snapshotId]
+        [randomUUID(), sessionId, deviceId, attemptId, category, severity, JSON.stringify(detail), snapshotId]
       );
       return result.rows[0];
     },
@@ -36,7 +36,7 @@ export function createSuspiciousBehaviorStore(db) {
       const params = [sessionId];
 
       if (unreviewedOnly) {
-        query += ` AND e.teacher_reviewed = FALSE`;
+        query += ` AND e.teacher_reviewed = false`;
       }
       if (category) {
         query += ` AND e.category = $${params.length + 1}`;
@@ -72,7 +72,7 @@ export function createSuspiciousBehaviorStore(db) {
       const result = await db.query(
         `SELECT device_id, category, COUNT(*) as count
          FROM suspicious_behavior_events
-         WHERE session_id = $1 AND teacher_reviewed = FALSE
+         WHERE session_id = $1 AND teacher_reviewed = false
          GROUP BY device_id, category
          ORDER BY count DESC`,
         [sessionId]
@@ -91,12 +91,12 @@ export function createSuspiciousBehaviorStore(db) {
 
       const result = await db.query(
         `UPDATE suspicious_behavior_events
-         SET teacher_reviewed = TRUE,
+         SET teacher_reviewed = true,
              teacher_review = $1,
-             teacher_reviewed_at = NOW(),
+             teacher_reviewed_at = now(),
              teacher_reviewed_by = $2,
              action_taken = $3,
-             action_taken_at = NOW(),
+             action_taken_at = now(),
              action_taken_by = $2
          WHERE id = $4
          RETURNING *`,
@@ -149,7 +149,7 @@ export function createSuspiciousBehaviorStore(db) {
       const params = [teacherId];
 
       if (unreviewedOnly) {
-        query += ` AND e.teacher_reviewed = FALSE`;
+        query += ` AND e.teacher_reviewed = false`;
       }
 
       query += ` ORDER BY e.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;

@@ -118,14 +118,15 @@ export function installExamControls({
   teacher.post(
     "/admin/suspicious/review",
     route(async (req, res) => {
-      const { eventId, teacherId, review, action } = req.body;
-      if (!eventId || !teacherId || !review || !action) {
+      const { eventId, review, action } = req.body;
+      // Use req.teacher from authenticated JWT, not from request body
+      if (!eventId || !review || !action) {
         return res.status(400).json({ error: "Missing required fields" });
       }
       try {
         const result = await suspiciousStore.review({
           eventId,
-          teacherId,
+          teacherId: req.teacher,
           review,
           action,
         });
@@ -139,7 +140,11 @@ export function installExamControls({
   teacher.get(
     "/admin/suspicious/events",
     route(async (req, res) => {
-      const { sessionId, teacherId, unreviewedOnly, category } = req.query;
+      const { sessionId, unreviewedOnly, category } = req.query;
+      // Use req.teacher to ensure teacher owns the session
+      if (!sessionId) {
+        return res.status(400).json({ error: "sessionId is required" });
+      }
       try {
         const result = await suspiciousStore.listBySession(
           sessionId,
