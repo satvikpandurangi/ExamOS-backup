@@ -12,7 +12,8 @@
     "migrate": "node server/migrate.js",
     "teacher": "node server/create-teacher.js",
     "test:windows-lifecycle": "node tests/windows-lifecycle.mjs",
-    "test:answer-browser": "node tests/answer-browser.mjs"
+    "test:answer-browser": "node tests/answer-browser.mjs",
+    "test:windows-restart": "node tests/windows-restart.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
