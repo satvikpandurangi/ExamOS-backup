@@ -20,7 +20,7 @@ npm run build
 npm test
 ```
 
-The current Node suite contains nine tests across response synchronization, enrollment, examinations, proctoring and authenticated workflow files. PGlite fixtures are isolated. Leave `TEST_DATABASE_URL` unset for the default embedded-database run. For native coverage, set `TEST_DATABASE_URL` to a dedicated database whose name begins `examos_test` and set `EXAMOS_TEST_DATABASE_DISPOSABLE=1`. Every fixture then gets a unique schema, migrated and removed independently. These tests refuse other database names. Never use a live application database.
+The current Node suite contains test files across response synchronization, enrollment, examinations, exam controls, proctoring, monitoring lifecycle and authenticated workflow files. PGlite fixtures are isolated. Leave `TEST_DATABASE_URL` unset for the default embedded-database run. For native coverage, set `TEST_DATABASE_URL` to a dedicated database whose name begins `examos_test` and set `EXAMOS_TEST_DATABASE_DISPOSABLE=1`. Every fixture then gets a unique schema, migrated and removed independently. These tests refuse other database names. Never use a live application database.
 
 The PDF generator now returns isolated in-memory bytes without rewriting tracked files. The checked-in mathematical PDF is a static browser-upload asset. Generated reports/certificates/databases remain under ignored paths.
 
@@ -92,7 +92,7 @@ Record date, source commit/build hash, requirement/backlog IDs, environment, exa
 
 ## P0-01 response reliability
 
-`npm test` now includes `tests/answer-sync.test.js` (scheduler/retry/order and SQL revision/duplicate/deadline tests). The P0-01 handoff suite contained eight tests; the current suite includes nine with the monitoring race regression.
+`npm test` includes `tests/answer-sync.test.js` (scheduler/retry/order and SQL revision/duplicate/deadline tests), `tests/monitoring-lifecycle.test.js` (monitoring race regressions), and `tests/exam-controls.test.js` (paused-save retry retention and real SQL-backed controls/audit/ownership/deadline behavior).
 
 Run `node tests/answer-browser.mjs` after building for actual page failure checks. On a host with system Chrome rather than Playwright Chromium, set `EXAMOS_TEST_BROWSER=chrome` in the test process environment. It aborts isolated test HTTP requests, exercises same-tab reload recovery and continuous editing, and checks cleanup and explicit conflict resolution. No camera or live examination is accessed.
 
@@ -119,3 +119,11 @@ Run `node tests/focused-screen-browser.mjs` after building. It uses two isolated
 Regression CI runs for pull requests and pushes to shared `main`. Open a PR for a feature branch; this avoids duplicate push/PR runs for the same changes. Hardware acceptance remains opt-in and outside CI.
 
 For an actual backend-process restart while the native Windows source agent is sharing, use the same screen-test opt-in and run `node tests/windows-restart.mjs` (`npm run test:windows-restart`). It starts only its own backend child with a new persistent PGlite directory, terminates/restarts that process, verifies teacher preview clearing and native stop, preserves the ended session, then requires manual reconnect/new session/fresh consent. It does not touch the operational server, native PostgreSQL service or camera.
+
+## Event review and manual controls
+
+`npm test` includes `tests/exam-controls.test.js` for paused-save retry retention and real SQL-backed controls/audit/ownership/deadline behavior. `node tests/exam-controls-browser.mjs` covers the actual teacher/student flow; set `EXAMOS_TEST_BROWSER=chrome` for installed system Chrome and optionally `EXAMOS_TEST_ARTIFACT_DIR` for private screenshots. The snapshot is a labeled codec fixture, not actual webcam evidence. Migration 008 must be present. See [EVENT-REVIEW.md](EVENT-REVIEW.md) for the exact contract and deployment limits.
+
+## Phone/app/window pipeline
+
+After building, run `node tests/policy-review-browser.mjs` (`EXAMOS_TEST_BROWSER=chrome` selects system Chrome). It creates isolated SQL fixtures and authenticated sockets, exercises phone codec events, executable allowlist samples and synthetic browser exit handlers, then follows the real teacher review/link-snapshot/dismiss/pause/end UI. Consent and ownership rejection paths are asserted. Migration 009 is required. Physical camera/model acceptance is a separate checklist in EVENT-REVIEW.md and must not be inferred from this pass.

@@ -134,6 +134,8 @@ Dependencies: P1-03; integrate policy details from P1-02 when available.
 
 ### P1-05 — Acknowledged classroom controls
 
+User-authorized separate increment: individual exam pause/resume/end and atomic control audit are implemented on `feature/incident-review-controls`. The deadline continues during an exam hold; this differs from pausing monitoring. See [EVENT-REVIEW.md](EVENT-REVIEW.md) and PROJECT-STATUS.md for scope and evidence. Full classroom command acknowledgement, announcements, role expansion and managed OS restrictions remain planned.
+
 Requirements: REQ-06, REQ-07, REQ-08, REQ-09, REQ-12.
 
 Work: implement classroom/device-scoped announcements, pause monitoring, request resume with fresh student consent, end session, and revoke device through a shared command model. Display pending/acknowledged/failed/timed-out results and per-device outcomes.

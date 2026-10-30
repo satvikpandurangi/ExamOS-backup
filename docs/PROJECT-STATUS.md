@@ -1,6 +1,10 @@
 # Project status and handoff
 
+<<<<<<< HEAD
 Last updated: 31 October 2026. Reviewed application source: `300a8eb0ca70a5fe177af754552c137923e673c2` on `main`. P0-01 is included in handoff `0178aea`. Current continuation is on a feature branch; no shared-main merge or live deployment has been performed.
+=======
+Last updated: 31 October 2026. Reviewed application source: `300a8eb0ca70a5fe177af754552c137923e673c2` on `main`. P0-01 has subsequently been implemented in the working tree; no release or live deployment has been performed.
+>>>>>>> origin/feature/incident-review-controls
 
 ## Current product state
 
@@ -96,6 +100,20 @@ Requirements: REQ-02, REQ-04, REQ-09. Existing server authorization, device cons
 Acceptance observed on 31 October 2026: the actual Windows source agent delivered seven real screen previews in the existing native workflow; React displayed that device in the focused view and removed the image on withdrawal. The native stop/session/minimize/close checks remained passing. Separate browser fixtures used two explicitly labeled protocol/codec devices, not two physical computers, to verify correct identity/session, new frames without selection loss, ten-second expiry, malformed-frame rejection/recovery, consent/end/disconnect clearing, filters/search, Escape/focus return, left/right navigation and 390px layout. The focused browser also passed using the isolated native PostgreSQL 16 fixture backend; dashboard route/counter regression passed. All five CI jobs also passed on feature commit `390b9a7`, including the new focused-screen browser and actual clean bootstrap/restart checks (run https://github.com/sujalkotkar2006-alt/ExamOS/actions/runs/41108683608). The subsequent lease guard adds an additional pure test and native delayed-heartbeat acceptance; all five jobs passed on `a43d092` (https://github.com/sujalkotkar2006-alt/ExamOS/actions/runs/41109585046). Desktop/mobile fixture screenshots were inspected and remain ignored. No actual student screen was written to a screenshot artifact.
 
 Open: two physical devices simultaneously visible, LAN/classroom latency/capacity, comprehensive accessibility audit and future classroom-role integration. The P1-01 software can be reviewed, but multi-device physical acceptance and the product release gate remain open.
+
+## Event review and individual exam-control increment
+
+User-authorized separate workstream on `feature/incident-review-controls`, based on published P0-01 commit `0178aea`. Maps to REQ-05/06/07/08/09/12 and partial P1-04/P1-05; does not complete the administrator-role or browser-policy roadmap items.
+
+Implemented progress/flag triage, student/session incident filters, existing protected evidence and dismissal workflow, explicit per-attempt pause/resume/end with reasons, replay-safe receipts and atomic state/audit writes. Migration 008 preserves the existing status model and adds pause metadata plus the control ledger. The deadline continues during pause. Student APIs reject paused response/PDF requests, and the student page shows the hold, preserves tab-scoped text, resumes eligible saves, and distinguishes an invigilator-ended attempt. See [EVENT-REVIEW.md](EVENT-REVIEW.md) for the API, timer and monitoring contract.
+
+Observed: production build and all ten Node tests passed with the existing bundle warning. SQL integration tests passed for ownership, replay/conflict, paused API enforcement, unchanged deadlines, student isolation, atomic rollback on audit failure, individual end and timeout. Real system-Chrome workflow passed for progress/filter, protected codec-fixture snapshot rendering, ignore/dismiss, pause across reload, resume and end. The media is explicitly a codec fixture; this is not native webcam, OS-lockdown or actual detector validation. Desktop/mobile overflow checks passed for the teacher controls and paused student page. The P0-01 browser failure suite and existing teacher/student PDF examination browser workflow also passed after this change. Native PostgreSQL and physical-device acceptance remain unverified. No live service was restarted, and this branch has not been pushed by this implementation task.
+
+## Phone/app/window pipeline increment - 31 October 2026
+
+Scope: REQ-05/06/08/09/12 and EXT-02 on the same isolated feature branch. Started assigned-examination application violations now join the proctor incident workflow, with the observed executable. Browser exit events have a ten-second per-category/attempt cooldown. Incident details can request a separately consented camera check linked through migration 009; source observations are preserved and media are not duplicated. These are later camera snapshots, not stored screen previews.
+
+Observed: production build, all ten Node regression tests and the end-to-end browser/SQL/Socket.IO pipeline passed using explicit JPEG codec and DOM-event fixtures: consent rejection, allowed/prohibited apps, window-blur/fullscreen events, protected phone evidence, linked camera snapshot, ignore/dismiss and manual pause/end. This is not real webcam/model inference or physical foreground-window validation. The host still lacks av, win32crypt, requests and socketio Python modules for the full native agent; physical phone-detection acceptance remains pending. See EVENT-REVIEW.md for the repeatable hardware checklist. No live service was restarted and no changes were pushed.
 
 ## Next action
 

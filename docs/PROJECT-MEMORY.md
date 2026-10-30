@@ -42,6 +42,14 @@ Handoff assignment: the project owner asked to publish all work so their friend 
 
 Verification detail and limits live in [PROJECT-STATUS.md](PROJECT-STATUS.md); do not duplicate or promote incomplete checks here.
 
+## Current separate workstream
+
+The owner approved observable-event review with manual individual exam pause/resume/end controls. Implementation is isolated on `feature/incident-review-controls`, based on `0178aea`; the friend's P0-02 onward assignment is unchanged. This increment serves REQ-05/06/07/08/09/12 and parts of P1-04/P1-05. See [EVENT-REVIEW.md](EVENT-REVIEW.md).
+
+Decision: pausing holds exam access while the existing deadline continues. It does not grant monitoring consent or lock the operating system. Ending preserves acknowledged answers and requires an explicit human action/reason. The existing authorized teacher role is used; broader administrator/invigilator RBAC remains P1-03. Website/AI-service telemetry remains P1-02. Gaze/attention inference, automatic penalties, compliance certification and OS-level lockdown are not part of this implementation.
+
+The owner subsequently requested a phone/prohibited-app/window-exit end-to-end pass. Started assigned-exam app violations now create proctor incidents; a teacher-requested consented camera snapshot can be linked to an incident using migration 009. Phone snapshots remain automatic only when separately consented; app/window snapshots are later teacher requests, not saved screen frames. Protocol/browser fixture acceptance is distinct from pending physical phone-model validation. See EVENT-REVIEW.md.
+
 ## Update rules
 
 - Keep durable intent, agreed decisions, important constraints and the next action here.

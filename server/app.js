@@ -498,7 +498,11 @@ export function createApp(db, secret) {
             .catch((e) => {
               console.error(e.message);
               if (typeof ack === "function")
-                ack({ error: e.status ? e.message : "Request failed", status: e.status || 503, retryable: !e.status || e.status>=500 || e.status===429 });
+                ack({
+                  error: e.status ? e.message : "Request failed",
+                  status: e.status || 503,
+                  retryable: !e.status || e.status >= 500 || e.status === 429,
+                });
             })
             .finally(() => pending--);
         });
@@ -643,10 +647,12 @@ export function createApp(db, secret) {
           Date.now() - o.lastAlert > 30000
         ) {
           o.lastAlert = Date.now();
-          await event(d.teacher_id, s.id, d.id, "rule_alert", {
-            app: p.app,
-            reason: "Application outside allowed list; teacher review required",
-          });
+          if (!(await proctor.recordProhibitedApplication(d, s.id, p.app)))
+            await event(d.teacher_id, s.id, d.id, "rule_alert", {
+              app: p.app,
+              reason:
+                "Application outside allowed list; teacher review required",
+            });
         } // Re-check session after awaited writes before forwarding pixels.
         if ((await active(d.teacher_id))?.id === s.id && o.consented === s.id && socket.connected && online.get(d.id)===o && Date.now()-o.lastSeen<=8000)
           io.to("teacher:" + d.teacher_id).emit("preview", {
