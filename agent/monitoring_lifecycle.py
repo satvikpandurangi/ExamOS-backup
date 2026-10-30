@@ -21,3 +21,7 @@ class ConsentGate:
         with self.lock:
             return bool(not self.stop_requested.is_set() and self.session and self.accepted == self.session['id'] and time.monotonic() < self.lease_until)
 
+
+def may_renew_lease(previous_until, request_started, grant_accepted, server_allowed=None):
+    """Do not revive an expired lease or apply a negative reply to a newer grant."""
+    return previous_until > request_started and (server_allowed is not False or grant_accepted > request_started)

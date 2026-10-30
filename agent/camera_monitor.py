@@ -126,6 +126,7 @@ class CameraMonitor:
             granted = True
             grant = result.get('grantId')
             self.grant=grant
+            self.grant_accepted_at=time.monotonic()
             self.clips_enabled=bool(clips and snapshots and grant)
             clip_seconds = max(4,min(20,int(result.get('clipSeconds',10))))
             cooldown = max(10,min(300,int(result.get('cooldownSeconds',30))))

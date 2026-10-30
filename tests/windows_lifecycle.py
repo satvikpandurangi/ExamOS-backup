@@ -201,6 +201,26 @@ def test_workflow():
         measurements_report['lateRealConsentAckCannotResume']=True
         resume_sharing()
         print('PASS: stale consent acknowledgement cannot resume native capture',flush=True)
+        # A real heartbeat says no consent, but its delayed reply must not cancel a NEWER grant.
+        stop_and_verify(agent.withdraw,'Student stopped monitoring')
+        negative_reply=threading.Event()
+        release_heartbeat=threading.Event()
+        held_once=threading.Event()
+        def delayed_heartbeat(client,name,payload,timeout,cancel=None):
+            response=original_call(client,name,payload,timeout,cancel)
+            if name=='heartbeat' and response.get('screenConsented') is False and not held_once.is_set():
+                held_once.set();negative_reply.set();release_heartbeat.wait(4)
+            return response
+        agent.server_call=delayed_heartbeat
+        assert negative_reply.wait(8)
+        commands.put(agent.accept)
+        wait_for(agent.gate.allowed,'new explicit consent accepted while old heartbeat reply is held')
+        release_heartbeat.set()
+        agent.server_call=original_call
+        time.sleep(.4)
+        assert agent.gate.allowed(),'Old negative heartbeat cancelled a newer grant'
+        measurements_report['oldNegativeHeartbeatCannotCancelNewGrant']=True
+        print('PASS: delayed negative heartbeat cannot cancel a newer explicit consent',flush=True)
         # Actual loopback transport failure; no fake heartbeat or capture result.
         fault_start=time.monotonic()
         requests.post(base+'/__test/transport',headers={'X-Test-Control':os.environ['EXAMOS_TEST_CONTROL']},json={'blocked':True},timeout=3).raise_for_status()

@@ -19,7 +19,7 @@ import requests
 import socketio
 import psutil
 from PIL import Image, ImageTk
-from monitoring_lifecycle import ConsentGate
+from monitoring_lifecycle import ConsentGate, may_renew_lease
 from camera_monitor import CameraMonitor
 from evidence_uploads import EvidenceUploads
 from exam_environment import ExamEnvironment
@@ -62,6 +62,7 @@ class Agent:
         self.quit = threading.Event()
         self.network_lock = threading.RLock()
         self.consent_generation = 0
+        self.screen_granted_at = 0
         self.consent_pending = False
         self.stopping = False
         self.closing = False
@@ -285,6 +286,7 @@ class Agent:
                 result = self.server_call(client, 'consent', {'sessionId': session['id'], 'accept': True}, timeout=4)
                 with self.gate.lock:
                     if self.client is client and time.monotonic()<requested_at+6 and generation == self.consent_generation and result.get('ok') and self.gate.session and self.gate.session['id'] == session['id'] and client.connected:
+                        self.screen_granted_at=time.monotonic()
                         self.gate.accepted = session['id']
                         self.gate.lease_until = min(requested_at + 6, self.attempt_until or float('inf'))
                         self.gate.stop_requested.clear()
@@ -418,12 +420,13 @@ class Agent:
                         if self.exam_state and self.exam_state.get('status') == 'started' and self.exam_state.get('deadline_at') and reply.get('serverNow'):
                             seconds = (datetime.fromisoformat(self.exam_state['deadline_at'].replace('Z','+00:00')) - datetime.fromisoformat(reply['serverNow'].replace('Z','+00:00'))).total_seconds()
                             self.attempt_until = requested_at + max(0, seconds)
-                        self.camera.lease_until = requested_at + 6
-                        if self.gate.accepted and reply.get('screenConsented') is False:
+                        if self.camera.running() and not may_renew_lease(self.camera.lease_until,requested_at,getattr(self.camera,'grant_accepted_at',0),reply.get('cameraConsented') if self.camera.status=='active' else None):
+                            self.camera.stop()
+                        else:
+                            self.camera.lease_until = requested_at + 6
+                        if self.gate.accepted and not may_renew_lease(self.gate.lease_until,requested_at,self.screen_granted_at,reply.get('screenConsented')):
                             self.gate.stop()
                             self.ui.put(('stop_monitoring','lease_expired'))
-                        if self.camera.running() and reply.get('cameraConsented') is False:
-                            self.camera.stop()
                         self.ui.put(('camera_policy', reply.get('proctoring', {})))
                         if self.exam_state and self.exam_state.get('status') in ('submitted', 'cancelled'):
                             self.gate.stop()

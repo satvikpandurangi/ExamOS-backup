@@ -92,7 +92,7 @@ Record date, source commit/build hash, requirement/backlog IDs, environment, exa
 
 ## P0-01 response reliability
 
-`npm test` now includes `tests/answer-sync.test.js` (scheduler/retry/order and SQL revision/duplicate/deadline tests). The suite contains eight tests.
+`npm test` now includes `tests/answer-sync.test.js` (scheduler/retry/order and SQL revision/duplicate/deadline tests). The P0-01 handoff suite contained eight tests; the current suite includes nine with the monitoring race regression.
 
 Run `node tests/answer-browser.mjs` after building for actual page failure checks. On a host with system Chrome rather than Playwright Chromium, set `EXAMOS_TEST_BROWSER=chrome` in the test process environment. It aborts isolated test HTTP requests, exercises same-tab reload recovery and continuous editing, and checks cleanup and explicit conflict resolution. No camera or live examination is accessed.
 
@@ -115,3 +115,5 @@ On Windows, provision a fresh agent environment with `py -3.13 -m venv .venv` an
 ## P1-01 focused screens
 
 Run `node tests/focused-screen-browser.mjs` after building. It uses two isolated, explicitly labeled protocol devices and small JPEG codec fixtures; it is not physical-device acceptance. It checks selected device/session, frame updates, expiry, malformed-image recovery, clearing, filters, keyboard/focus and mobile layout. The native `tests/run-windows.mjs` additionally opens the focused view using actual source-agent Windows screen frames and verifies withdrawal clears it. Close private content before this native screen-sharing test. The focused-screen browser is also in CI's PostgreSQL job.
+
+Regression CI runs for pull requests and pushes to shared `main`. Open a PR for a feature branch; this avoids duplicate push/PR runs for the same changes. Hardware acceptance remains opt-in and outside CI.
