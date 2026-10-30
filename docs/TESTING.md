@@ -20,7 +20,7 @@ npm run build
 npm test
 ```
 
-The current Node suite contains eight tests across response synchronization, enrollment, examinations, proctoring and authenticated workflow files. PGlite fixtures are isolated. Leave `TEST_DATABASE_URL` unset for the default embedded-database run. If set, it must identify a dedicated disposable test database: currently the workflow test uses it, while other fixtures still use PGlite. Setting this variable does not establish native PostgreSQL coverage of the whole suite.
+The current Node suite contains ten tests across response synchronization, enrollment, examinations, proctoring and authenticated workflow files. PGlite fixtures are isolated. Leave `TEST_DATABASE_URL` unset for the default embedded-database run. If set, it must identify a dedicated disposable test database: currently the workflow test uses it, while other fixtures still use PGlite. Setting this variable does not establish native PostgreSQL coverage of the whole suite.
 
 The test fixture generator currently rewrites `tests/fixtures/mathematics-question-paper.pdf`. Use a disposable test checkout or preserve its pre-run bytes and restore only test-generated changes afterward. Do not overwrite a pre-existing user edit. P0-03 moves generated fixtures outside tracked source.
 
@@ -92,8 +92,16 @@ Record date, source commit/build hash, requirement/backlog IDs, environment, exa
 
 ## P0-01 response reliability
 
-`npm test` now includes `tests/answer-sync.test.js` (scheduler/retry/order and SQL revision/duplicate/deadline tests). The suite contains eight tests.
+`npm test` now includes `tests/answer-sync.test.js` (scheduler/retry/order and SQL revision/duplicate/deadline tests). The suite contains ten tests.
 
 Run `node tests/answer-browser.mjs` after building for actual page failure checks. On a host with system Chrome rather than Playwright Chromium, set `EXAMOS_TEST_BROWSER=chrome` in the test process environment. It aborts isolated test HTTP requests, exercises same-tab reload recovery and continuous editing, and checks cleanup and explicit conflict resolution. No camera or live examination is accessed.
 
 Migration 007 adds response revisions and last mutation IDs. Updated save/submit clients must send `revision` and `mutationId`; refresh existing student pages during a planned upgrade outside active examinations. Draft recovery is same-tab sessionStorage only, not encrypted disk persistence or late submission.
+
+## Event review and manual controls
+
+`npm test` includes `tests/exam-controls.test.js` for paused-save retry retention and real SQL-backed controls/audit/ownership/deadline behavior. `node tests/exam-controls-browser.mjs` covers the actual teacher/student flow; set `EXAMOS_TEST_BROWSER=chrome` for installed system Chrome and optionally `EXAMOS_TEST_ARTIFACT_DIR` for private screenshots. The snapshot is a labeled codec fixture, not actual webcam evidence. Migration 008 must be present. See [EVENT-REVIEW.md](EVENT-REVIEW.md) for the exact contract and deployment limits.
+
+## Phone/app/window pipeline
+
+After building, run `node tests/policy-review-browser.mjs` (`EXAMOS_TEST_BROWSER=chrome` selects system Chrome). It creates isolated SQL fixtures and authenticated sockets, exercises phone codec events, executable allowlist samples and synthetic browser exit handlers, then follows the real teacher review/link-snapshot/dismiss/pause/end UI. Consent and ownership rejection paths are asserted. Migration 009 is required. Physical camera/model acceptance is a separate checklist in EVENT-REVIEW.md and must not be inferred from this pass.

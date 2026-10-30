@@ -40,3 +40,9 @@ The IDs below are the project's interpretation of the supplied statement, not ad
 ## Change record contract
 
 For each meaningful change record: backlog ID, `REQ-xx`/`EXT-xx` IDs, expected behavior, acceptance evidence, observed result, and remaining limits. Update this matrix when functionality or accepted coverage changes. A feature may satisfy several IDs; preserve IDs when reordering the roadmap.
+
+## Separate event-review increment
+
+The owner explicitly prioritized individual exam-control work alongside the baseline sequence. `feature/incident-review-controls` adds progress/flag triage and student/session review filters (REQ-05/06), ownership-checked human pause/resume/end (REQ-07/12), transactional action receipts/audit (REQ-08), and preserved consent boundaries (REQ-09). See [EVENT-REVIEW.md](EVENT-REVIEW.md). These requirements remain Partial: full roles, managed-browser website policy, deployment/native acceptance and broader classroom controls are not completed by this increment.
+
+Phone/app/window follow-up (31 October 2026): started-exam app violations are unified with proctor incidents (REQ-05/06/08); linked teacher-requested camera snapshots preserve current consent and human decisions (REQ-09/12, EXT-02). Protocol/browser checks are recorded in PROJECT-STATUS.md. Hardware phone-detector accuracy, website policy coverage and deployment acceptance remain unverified or planned; core requirements remain Partial.
