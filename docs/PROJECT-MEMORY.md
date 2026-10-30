@@ -48,3 +48,7 @@ Verification detail and limits live in [PROJECT-STATUS.md](PROJECT-STATUS.md); d
 - Update after a meaningful implementation milestone or user decision; use status/roadmap for detailed results and backlog.
 - Separate observed facts, proposed choices and unresolved questions. The user can revise working decisions without changing the original statement.
 - Do not store credentials, tokens, student information, captured media, private keys or transient machine diagnostics here.
+
+The owner requested bounded implementation batches to conserve usage: finish and verify the current batch, keep reports brief, and avoid deep expansion into later roadmap areas.
+
+Latest follow-up: the receipt-time lease guard passed pure checks and packaged enrollment UI, but two full native lifecycle reruns timed out waiting for consent state. P0-02 is open; investigate this bounded failure before treating the current Windows build as accepted. Earlier successful native runs are historical evidence, not a substitute for current acceptance.

@@ -49,6 +49,8 @@ Dependencies: none. Do not redesign the rest of the student page in this task.
 
 ### P0-02 — Monitoring lifecycle and native Windows acceptance (partial)
 
+Current blocker: latest native reruns timed out waiting for consent state after prior successful runs. Keep this item open; see PROJECT-STATUS.md. Work is bounded per the owner’s usage constraint.
+
 Requirements: REQ-01, REQ-03, REQ-06, REQ-09, REQ-10; EXT-02 where existing camera behavior is repaired.
 
 Work:

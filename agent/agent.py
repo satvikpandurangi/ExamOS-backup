@@ -420,11 +420,11 @@ class Agent:
                         if self.exam_state and self.exam_state.get('status') == 'started' and self.exam_state.get('deadline_at') and reply.get('serverNow'):
                             seconds = (datetime.fromisoformat(self.exam_state['deadline_at'].replace('Z','+00:00')) - datetime.fromisoformat(reply['serverNow'].replace('Z','+00:00'))).total_seconds()
                             self.attempt_until = requested_at + max(0, seconds)
-                        if self.camera.running() and not may_renew_lease(self.camera.lease_until,requested_at,getattr(self.camera,'grant_accepted_at',0),reply.get('cameraConsented') if self.camera.status=='active' else None):
+                        if self.camera.running() and not may_renew_lease(self.camera.lease_until,requested_at,getattr(self.camera,'grant_accepted_at',0),reply.get('cameraConsented') if self.camera.status=='active' else None,received_at=time.monotonic()):
                             self.camera.stop()
                         else:
                             self.camera.lease_until = requested_at + 6
-                        if self.gate.accepted and not may_renew_lease(self.gate.lease_until,requested_at,self.screen_granted_at,reply.get('screenConsented')):
+                        if self.gate.accepted and not may_renew_lease(self.gate.lease_until,requested_at,self.screen_granted_at,reply.get('screenConsented'),received_at=time.monotonic()):
                             self.gate.stop()
                             self.ui.put(('stop_monitoring','lease_expired'))
                         self.ui.put(('camera_policy', reply.get('proctoring', {})))

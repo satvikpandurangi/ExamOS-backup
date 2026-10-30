@@ -26,6 +26,8 @@ class GateTests(unittest.TestCase):
 
     def test_lease_renewal_rejects_expiry_and_preserves_a_newer_grant(self):
         self.assertFalse(may_renew_lease(9,10,8,True))
+        self.assertFalse(may_renew_lease(12,10,8,True,received_at=13))
+        self.assertTrue(may_renew_lease(16,10,11,False,received_at=12))
         self.assertFalse(may_renew_lease(16,10,8,False))
         self.assertTrue(may_renew_lease(16,10,11,False))
         self.assertTrue(may_renew_lease(16,10,8,True))

@@ -71,6 +71,14 @@ Private evidence: `data/tmp/p0-02-stale-heartbeat.log`, native PostgreSQL and br
 
 Open acceptance: the owner confirmed only one Windows computer is available. A second physical Windows device over the LAN/trusted HTTPS, real LAN partition, complete packaged lifecycle, and the upstream camera reconnection/detector acceptance remain open. P0-02 and the core requirements remain Partial; neither source screen success nor TLS loopback success closes these gaps.
 
+### Latest bounded follow-up / unresolved native acceptance
+
+The final lease guard additionally compares expiry with acknowledgement receipt time, so a lease that expires while a heartbeat is in flight cannot be revived. Six pure Python checks passed. The rebuilt EXE passed PE validation and the actual packaged enrollment UI. Current agent source SHA-256: `62f91711be56ccf08025c0c5da22a6e72bc4166dbf83ddfcafd0a8fd0fecb7b1`; current EXE SHA-256: `68225b48e9cf31858f6f788a605fa30bac0d257eba7d1baa972b2240c636fcb8`.
+
+However, two subsequent full native lifecycle runs timed out at `previous consent acknowledgment` after earlier successful native runs. The cause has not been isolated; current-build full Windows acceptance must **not** be claimed from the earlier measurements. Private logs: `data/tmp/p0-02-receipt-expiry.log` and `data/tmp/p0-02-bounded-final.log`. No capture-after-stop result was observed, but the acceptance suite did not complete. This is an unresolved consent/UI timing acceptance issue, not a misconduct event. The owner requested bounded work to conserve usage, so deeper investigation and further roadmap expansion were stopped. P0-02 remains open and the PR stays draft.
+
+All five CI jobs passed on `c3fa157` (https://github.com/sujalkotkar2006-alt/ExamOS/actions/runs/41110317065); CI does not run the native sensor tests and cannot close this failure. Final follow-up checks are visible in the PR.
+
 ## P0-03: reproducible regression foundation (implemented)
 
 Requirements: REQ-01, REQ-06, REQ-09, REQ-10, REQ-11. Pure consent/cooldown modules now import without Windows/media dependencies; six pure Python tests now pass. Generated PDF bytes no longer overwrite the tracked fixture. All database fixtures can opt into a dedicated native `examos_test...` database with explicit disposable-test consent, and each fixture owns/cleans its own random schema.
