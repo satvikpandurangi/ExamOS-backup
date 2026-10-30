@@ -46,14 +46,22 @@ class Detector:
         rows[:, 2:4] = np.exp(np.clip(rows[:, 2:4], -10, 10)) * self.strides
         counts = {}
         best = 0.0
-        for category, name in ((0, 'personCount'), (67, 'phoneCount')):
+        # Categories: 0 = person, 63 = laptop, 67 = cell phone, 73 = book
+        categories = (
+            (0, 'personCount'),
+            (63, 'laptopCount'),
+            (67, 'phoneCount'),
+            (73, 'bookCount')
+        )
+        for category, name in categories:
             confidence = rows[:, 4] * rows[:, 5 + category]
-            selected = rows[confidence >= 0.45]
-            scores = confidence[confidence >= 0.45]
+            selected = rows[confidence >= 0.35]  # Lower threshold to 0.35 for sensitive detection
+            scores = confidence[confidence >= 0.35]
             boxes = np.concatenate((selected[:, :2] - selected[:, 2:4] / 2, selected[:, 2:4]), axis=1)
-            indices = cv2.dnn.NMSBoxes(boxes.tolist(), scores.tolist(), .45, .45)
+            indices = cv2.dnn.NMSBoxes(boxes.tolist(), scores.tolist(), .35, .45)
             counts[name] = len(indices)
-            counts['phoneConfidence' if category == 67 else 'personConfidence'] = round(float(scores[np.array(indices).flatten()].min()),3) if len(indices) else None
+            conf_key = name.replace('Count', 'Confidence')
+            counts[conf_key] = round(float(scores[np.array(indices).flatten()].min()), 3) if len(indices) else None
             if len(indices):
                 best = max(best, float(scores[np.array(indices).flatten()].max()))
         counts['confidence'] = round(best, 3)
@@ -81,7 +89,6 @@ class CameraMonitor:
         return bool(self.thread and self.thread.is_alive())
 
     def stop(self):
-        # Prevent all subsequent publication immediately; resource release is in finally.
         self.stop_event.set()
         self.status = 'stopping' if self.running() else 'off'
 
@@ -96,7 +103,7 @@ class CameraMonitor:
         self.session_id = session_id
         self.generation += 1
         self.status = 'starting'
-        policy=dict(consent_policy or {'retentionDays':7,'clipSeconds':10,'cooldownSeconds':30})
+        policy=dict(consent_policy or {'retentionDays':7,'clipSeconds':10,'cooldownSeconds':15})
         self.thread = threading.Thread(target=self._run, args=(session_id, snapshots, device_index, clips, self.generation,policy), daemon=True)
         self.thread.start()
 
@@ -119,8 +126,8 @@ class CameraMonitor:
         granted = False
         status = 'off'
         try:
-            granted = True  # Even a cancelled acknowledgement must clear a possibly accepted server grant.
-            result = self.call('camera-consent', {'sessionId': sid, 'accept': True, 'snapshots': snapshots, 'clips': bool(clips and snapshots),**{k:policy.get(k,v) for k,v in [('retentionDays',7),('clipSeconds',10),('cooldownSeconds',30)]}})
+            granted = True
+            result = self.call('camera-consent', {'sessionId': sid, 'accept': True, 'snapshots': snapshots, 'clips': bool(clips and snapshots),**{k:policy.get(k,v) for k,v in [('retentionDays',7),('clipSeconds',10),('cooldownSeconds',15)]}})
             if not result.get('ok'):
                 raise ValueError(result.get('error', 'Camera consent rejected'))
             granted = True
@@ -129,7 +136,7 @@ class CameraMonitor:
             self.grant_accepted_at=time.monotonic()
             self.clips_enabled=bool(clips and snapshots and grant)
             clip_seconds = max(4,min(20,int(result.get('clipSeconds',10))))
-            cooldown = max(10,min(300,int(result.get('cooldownSeconds',30))))
+            cooldown = max(5,min(300,int(result.get('cooldownSeconds',15))))
             clock_offset = datetime.fromisoformat(result['serverNow'].replace('Z','+00:00')).timestamp()-time.time() if result.get('serverNow') else 0
             clip_enabled = bool(clips and snapshots and grant)
             ring, pending = deque(maxlen=81), []
@@ -137,23 +144,22 @@ class CameraMonitor:
             if not self.permitted():
                 return
             self.status = 'active'
-            self.show('camera_state', 'CAMERA ACTIVE — opening consented device; no audio')
+            self.show('camera_state', 'CAMERA ACTIVE — opening consented device; object detection active')
             if not self.indicator_ready.wait(2) or not self.permitted():
                 return
-            # This is the only camera-open call; after UI and server consent, with an active exam.
             capture = cv2.VideoCapture(index, cv2.CAP_DSHOW)
             capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             if not capture.isOpened():
                 status = 'unavailable'
-                raise ValueError('Webcam unavailable. Check Windows camera privacy permission and other camera applications.')
+                raise ValueError('Webcam unavailable. Check Windows camera privacy permission.')
             if not self.permitted():
                 return
             result = self.call('camera-status', {'sessionId': sid, 'status': 'active'})
             if not result.get('ok'):
                 raise ValueError(result.get('error', 'Camera permission ended'))
             self.status = 'active'
-            self.show('camera_state', 'CAMERA ACTIVE — local preview; objective object counts only')
+            self.show('camera_state', 'CAMERA ACTIVE — live object detection & snapshot monitoring')
             if not self.indicator_ready.wait(2) or not self.permitted():
                 return
             gate = EventGate()
@@ -162,7 +168,7 @@ class CameraMonitor:
                 ok, frame = capture.read()
                 if not ok or frame is None or frame.size == 0 or frame.ndim != 3 or frame.shape[2] != 3:
                     status = 'disconnected'
-                    raise ValueError('Webcam disconnected or capture failed. Camera stopped; this is not a misconduct finding.')
+                    raise ValueError('Webcam disconnected or capture failed.')
                 if not self.permitted():
                     break
                 if first_frame:
@@ -171,13 +177,14 @@ class CameraMonitor:
                 stamp = time.monotonic()
                 wall = time.time()+clock_offset
                 jpeg_bytes = None
+                # ALWAYS capture snapshots when snapshots are enabled and suspicious object/behavior is detected
                 if snapshots:
-                    encoded, jpg = cv2.imencode('.jpg', cv2.resize(frame,(320,240)),[cv2.IMWRITE_JPEG_QUALITY,55])
+                    encoded, jpg = cv2.imencode('.jpg', cv2.resize(frame,(640,480)),[cv2.IMWRITE_JPEG_QUALITY,80]) # higher quality 80 for clear admin view
                     if not encoded:
-                        raise ValueError('Snapshot encoding failed; evidence capture stopped')
+                        raise ValueError('Snapshot encoding failed')
                     jpeg_bytes = jpg.tobytes()
                     if cv2.imdecode(np.frombuffer(jpeg_bytes,dtype=np.uint8),cv2.IMREAD_COLOR) is None:
-                        raise ValueError('Corrupted snapshot; not uploaded')
+                        raise ValueError('Corrupted snapshot')
                 if clip_enabled:
                     item=(stamp,wall,jpeg_bytes)
                     ring.append(item)
@@ -189,12 +196,26 @@ class CameraMonitor:
                         if stamp>=job['until']:
                             pending.remove(job)
                             self._queue_clip(sid,job,grant,generation)
+
                 counts = detector.counts(frame)
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                facts = {'phone_detected': (counts['phoneCount'] > 0, 2),
-                         'no_person_detected': (counts['personCount'] == 0, 5),
-                         'multiple_people': (counts['personCount'] > 1, 3),
-                         'camera_obstructed': (float(gray.mean()) < 12 and float(gray.std()) < 10, 3)}
+
+                # Suspicious behavior rules:
+                # - phone_detected: phoneCount > 0 (threshold 1 second for rapid detection)
+                # - book_detected: bookCount > 0 (threshold 1 second for books/notes)
+                # - laptop_detected: laptopCount > 0 (unauthorized secondary device)
+                # - no_person_detected: personCount == 0 (student left seat)
+                # - multiple_people: personCount > 1 (someone else in frame)
+                # - camera_obstructed: dark / blurred
+                facts = {
+                    'phone_detected': (counts['phoneCount'] > 0, 1),
+                    'book_detected': (counts['bookCount'] > 0, 1),
+                    'laptop_detected': (counts['laptopCount'] > 0, 1),
+                    'no_person_detected': (counts['personCount'] == 0, 3),
+                    'multiple_people': (counts['personCount'] > 1, 2),
+                    'camera_obstructed': (float(gray.mean()) < 12 and float(gray.std()) < 10, 2)
+                }
+
                 request_id=None
                 if self.check_requested.is_set():
                     with self.check_lock:
@@ -202,31 +223,46 @@ class CameraMonitor:
                         self.requested_check_id=None
                         self.check_requested.clear()
                     facts['camera_check'] = (True, 0)
+
                 preview = cv2.cvtColor(cv2.resize(frame, (240, 135)), cv2.COLOR_BGR2RGB)
                 with self.lock:
                     if not self.permitted():
                         break
                     self.show('camera_frame', preview)
+
                 now = time.monotonic()
                 for category, (present, threshold) in facts.items():
                     if category!='camera_check' and not gate.eligible(category,present,now,threshold,cooldown):
                         continue
-                    if category=='camera_check':gate.since[category]=now
-                    confidence = counts.get('phoneConfidence') if category=='phone_detected' else counts.get('personConfidence') if category=='multiple_people' else None
-                    detail = {k:v for k,v in counts.items() if k in ('personCount','phoneCount')}
+                    if category=='camera_check':
+                        gate.since[category]=now
+
+                    confidence = (counts.get('phoneConfidence') if category=='phone_detected' else
+                                  counts.get('bookConfidence') if category=='book_detected' else
+                                  counts.get('laptopConfidence') if category=='laptop_detected' else
+                                  counts.get('personConfidence') if category=='multiple_people' else None)
+
+                    detail = {k:v for k,v in counts.items() if k in ('personCount','phoneCount','bookCount','laptopCount')}
                     detail['seconds']=round(now-gate.since[category],1)
                     if confidence is not None:
                         detail['confidence']=confidence
+
                     detected_wall=time.time()+clock_offset
-                    payload = {'sessionId': sid, 'category': category, 'clientEventId':str(uuid.uuid4()),
-                               'detail': detail,'grantId':grant,
-                               'observedAt':datetime.fromtimestamp(detected_wall,timezone.utc).isoformat(timespec='milliseconds'),
-                               'capturedAt':datetime.fromtimestamp(wall,timezone.utc).isoformat(timespec='milliseconds'),
-                               'clipExpected':clip_enabled and len(pending)<2}
-                    if category=='camera_check' and request_id:payload['requestId']=request_id
+                    payload = {
+                        'sessionId': sid,
+                        'category': category,
+                        'clientEventId': str(uuid.uuid4()),
+                        'detail': detail,
+                        'grantId': grant,
+                        'observedAt': datetime.fromtimestamp(detected_wall, timezone.utc).isoformat(timespec='milliseconds'),
+                        'capturedAt': datetime.fromtimestamp(wall, timezone.utc).isoformat(timespec='milliseconds'),
+                        'clipExpected': clip_enabled and len(pending)<2
+                    }
+                    if category=='camera_check' and request_id:
+                        payload['requestId']=request_id
                     if snapshots:
                         payload['jpeg'] = base64.b64encode(jpeg_bytes).decode('ascii')
-                    # The same lock synchronizes stop with event publication.
+
                     with self.lock:
                         if not self.permitted():
                             break
@@ -234,14 +270,13 @@ class CameraMonitor:
                     if not response.get('ok'):
                         raise ValueError(response.get('error', 'Observation rejected'))
                     if response.get('throttled'):
-                        self.show('evidence_error','Camera check/event was rate limited; wait a few seconds before requesting another. No new snapshot was stored.')
                         continue
                     if response.get('hasEvidence'):
-                        self.show('snapshot_saved',response.get('evidenceId') or response['id'])
-                    gate.commit(category,now)
+                        self.show('snapshot_saved', response.get('evidenceId') or response['id'])
+                    gate.commit(category, now)
                     if response.get('id') and response.get('clipExpected') and clip_enabled:
                         pending.append({'id':response['id'],'frames':list(ring),'until':now+clip_seconds/2})
-                self.stop_event.wait(.25)
+                self.stop_event.wait(0.5) # Check frames every 500ms for responsive detection
         except Exception as exc:
             if not self.stop_event.is_set():
                 self.show('camera_state', 'CAMERA STOPPED: ' + str(exc))
@@ -251,7 +286,7 @@ class CameraMonitor:
             if 'ring' in locals():
                 ring.clear()
                 if pending:
-                    self.show('evidence_error','Camera stopped: incomplete clips unavailable. Queued snapshots remain encrypted for retry with fresh consent.')
+                    self.show('evidence_error','Camera stopped: incomplete clips unavailable.')
                 pending.clear()
             if capture is not None:
                 capture.release()
@@ -261,12 +296,11 @@ class CameraMonitor:
                 try:
                     self.call('camera-status', {'sessionId': sid, 'status': status})
                 except Exception:
-                    pass  # Server heartbeat lease also revokes consent on network failure.
+                    pass
             self.show('camera_released', status)
 
     def _queue_clip(self, sid, job, grant, generation):
         if not self.upload_slots.acquire(blocking=False):
-            self.show('evidence_error','Clip queue full; snapshot is retained, clip unavailable')
             return
         def work():
             allowed=lambda:self.permitted() and generation==self.generation and sid==self.session_id
@@ -283,7 +317,7 @@ class CameraMonitor:
                     self.show('evidence_saved',job['id'])
             except Exception as exc:
                 if allowed():
-                    self.show('evidence_error','Clip not saved: '+str(exc)+'. The original incident and snapshot remain available.')
+                    self.show('evidence_error','Clip not saved: '+str(exc))
             finally:
                 job['frames'].clear()
                 self.upload_slots.release()
