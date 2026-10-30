@@ -79,9 +79,17 @@ A fresh detached Windows checkout of `f09820a` passed locked `npm ci`, build and
 
 The CI workflow now retains clean bootstrap as a regression gate. Node 24 is the `.nvmrc` default; Node 22/24 are the declared CI matrix, while Node 26.13.0 was also tested locally. Python 3.13 is the Windows build target. No hardware tests run automatically in CI. Local PostgreSQL 16 fixture-schema count returned to zero after tests; no migration was applied to the operational database. Native media restore, actual Linux capture and deployment/load gates remain P1/P2 work.
 
+## P1-01: focused primary screens and triage (software implemented; physical acceptance partial)
+
+Requirements: REQ-02, REQ-04, REQ-09. Existing server authorization, device consent and session binding are reused. The screen grid now opens a selected device in a native modal dialog, preserving its identity while frames update. It shows primary-screen scope, examination/session/device, executable metadata and local receipt age. It clears image content on withdrawal, end, disconnect, expiry or invalid image decode; later valid frames recover. Search by student/device, all/sharing/offline/attention filters and name/attention ordering are provided. Attention describes technical/consent state, never a misconduct verdict. Camera snapshots are not used for this view.
+
+Acceptance observed on 31 October 2026: the actual Windows source agent delivered seven real screen previews in the existing native workflow; React displayed that device in the focused view and removed the image on withdrawal. The native stop/session/minimize/close checks remained passing. Separate browser fixtures used two explicitly labeled protocol/codec devices, not two physical computers, to verify correct identity/session, new frames without selection loss, ten-second expiry, malformed-frame rejection/recovery, consent/end/disconnect clearing, filters/search, Escape/focus return, left/right navigation and 390px layout. The focused browser also passed using the isolated native PostgreSQL 16 fixture backend; dashboard route/counter regression passed. Desktop/mobile fixture screenshots were inspected and remain ignored. No actual student screen was written to a screenshot artifact.
+
+Open: two physical devices simultaneously visible, LAN/classroom latency/capacity, comprehensive accessibility audit and future classroom-role integration. The P1-01 software can be reviewed, but multi-device physical acceptance and the product release gate remain open.
+
 ## Next action
 
-Finish the open P0-02 physical-device/packaged/restart cases when access is available; continue independent P0-03 CI and clean-setup work meanwhile. Do not mark the Windows/Linux release gate accepted from this single-host result.
+Coordinate review/merge of this feature branch before shared-main changes. Next dependency-ordered software work is P1-03 classroom roles/account lifecycle, then P1-04 audit/reports, followed by policy/commands and Linux parity. Finish the open P0-02 physical/packaged/active-agent restart and P1-01 multi-device acceptance when access is available. Do not mark the Windows/Linux release gate accepted from these single-host/CI results.
 
 The project owner has assigned continuation from P0-02 onward to their friend and requested publication of the implementation and project documentation. The owner will work on a separate area.
 

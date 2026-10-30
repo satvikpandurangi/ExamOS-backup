@@ -66,4 +66,5 @@ jobs:
       - run: node tests/vision-dashboard.mjs
       - run: node tests/exam-browser.mjs
       - run: node tests/answer-browser.mjs
+      - run: node tests/focused-screen-browser.mjs
       - run: git diff --exit-code

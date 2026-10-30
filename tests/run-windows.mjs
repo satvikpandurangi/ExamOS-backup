@@ -55,7 +55,15 @@ try {
   console.log(
     "PASS: React dashboard displayed the real Windows agent preview over Socket.IO.",
   );
+  await page.getByRole('button',{name:'Inspect screen of Windows validation device'}).click();
+  const focused=page.getByRole('dialog',{name:'Windows validation device'});
+  await expect(focused.getByRole('img')).toHaveCount(1);
+  await expect(focused).toContainText('Received');
   await expect(page.locator(".device img")).toHaveCount(0, { timeout: 15000 });
+  await expect(focused.getByRole('img')).toHaveCount(0);
+  await expect(focused).toContainText('Monitoring stopped');
+  await focused.getByRole('button',{name:'Close focused screen'}).click();
+  console.log('PASS: focused screen displayed the actual Windows preview and cleared on withdrawal.');
   await expect(page.locator(".device")).toContainText("Monitoring stopped");
   await page.getByRole("link",{name:"Incident History",exact:true}).click();
   await expect(page.locator("#review")).toContainText("consent withdrawn");

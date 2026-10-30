@@ -30,3 +30,7 @@ Screen sharing, camera access, snapshots and silent event clips require visible 
 The temporary encrypted outbox is bounded to 24 items and approximately 32 MB, with a maximum 15-minute eligibility lifetime and four automatic attempts with exponential backoff. Manual retry is available. Cleanup runs while the agent is running and at the next startup; a closed application cannot delete files on a powered-off machine. Backend retention independently removes retained media after the configured period. Incomplete clips interrupted before completion are reported as unavailable; no frames are fabricated to fill them. No disconnection or detector event is a confirmed finding of cheating.
 
 The single-server startup ends active examinations on restart, preserving stored history and evidence. HTTPS with a trusted certificate is required for non-loopback LAN access.
+
+## Focused primary-screen view
+
+`dashboard/src/ScreenMonitor.jsx` consumes the same authorized transient preview stream as the grid. It binds images to the current session, connection, device and consent, and expires them after ten seconds using local receipt age. A native HTML dialog supplies modal keyboard/focus behavior, with explicit device/session metadata and technical empty/error states. It does not request capture or read saved camera evidence. Filters and ordering are local views of the existing teacher-scoped device API; future classroom roles must retain server-side scoping.

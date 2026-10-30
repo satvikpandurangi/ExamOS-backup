@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { io } from "socket.io-client";
 import "./style.css";
 import QuestionPapers, { ExamProgress } from "./QuestionPapers.jsx";
+import ScreenMonitor from "./ScreenMonitor.jsx";
 import StudentExam from "./StudentExam.jsx";
 import EvidenceCentre from "./EvidenceCentre.jsx";
 import LiveProctoring, { PrivateMedia } from "./LiveProctoring.jsx";
@@ -115,6 +116,7 @@ function App() {
       .then(fn)
       .catch((e) => setError(e.message));
   useEffect(() => {
+    setPreviews({});
     if (!token) return;
     run(refresh);
     const s = io({ auth: { role: "teacher", token } });
@@ -167,7 +169,7 @@ function App() {
     );
     s.on("disconnect",()=>setPreviews({}));
     s.on("connect_error",()=>setPreviews({}));
-    s.on("preview", (p) => setPreviews((old) => ({ ...old, [p.deviceId]: p })));
+    s.on("preview", (p) => setPreviews((old) => ({ ...old, [p.deviceId]: {...p,receivedAt:Date.now()} })));
     s.on("clear-previews", () => setPreviews({}));
     s.on("monitoring-stopped", ({ deviceId }) => {
       refreshVersion.current++;
@@ -194,7 +196,7 @@ function App() {
       run(refresh);
       setPreviews((old) =>
         Object.fromEntries(
-          Object.entries(old).filter(([, p]) => Date.now() - p.at < 10000),
+          Object.entries(old).filter(([, p]) => Date.now() - (p.receivedAt ?? p.at) < 10000),
         ),
       );
     }, 5000);
@@ -628,69 +630,8 @@ function App() {
             </h2>
             <span>Screen previews expire after 10 seconds</span>
           </div>
-          <section className="devices">
-            {!state.devices.length && (
-              <div className="empty">
-                No enrolled devices yet. Create an enrollment code to connect
-                the first student.
-              </div>
-            )}
-            {state.devices.map((d) => {
-              const p = previews[d.id];
-              return (
-                <article className="device" key={d.id}>
-                  <div className="device-head">
-                    <strong>{d.name}</strong>
-                    <span className="badge">
-                      {d.revoked
-                        ? "Revoked"
-                        : !d.online
-                          ? "Offline"
-                          : d.consented
-                            ? "Sharing"
-                            : "Awaiting consent"}
-                    </span>
-                  </div>
-                  <div className="screen">
-                    {p && active && p.sessionId === active.id && d.consented ? (
-                      <img
-                        alt={"Consented screen of " + d.name}
-                        src={"data:image/jpeg;base64," + p.jpeg}
-                      />
-                    ) : (
-                      <div>
-                        ▧
-                        <p>
-                          {!d.online
-                            ? "Device disconnected"
-                            : d.consented
-                              ? "Waiting for next preview"
-                              : "No screen shared"}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  <footer>
-                    <span>
-                      {d.consented
-                        ? d.app || "Waiting for application"
-                        : "Monitoring stopped"}
-                    </span>
-                    {!d.revoked && (
-                      <button
-                        className="text-button"
-                        onClick={() =>
-                          run(() => api("/devices/" + d.id + "/revoke", {}))
-                        }
-                      >
-                        Revoke
-                      </button>
-                    )}
-                  </footer>
-                </article>
-              );
-            })}
-          </section>
+          <ScreenMonitor devices={state.devices} previews={previews} session={active} connected={connected} onRevoke={id=>run(()=>api('/devices/'+id+'/revoke',{}))}/>
+
         </div>
         <div hidden={route.page !== "examinations"}>
           <QuestionPapers

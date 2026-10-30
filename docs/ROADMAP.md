@@ -1,6 +1,6 @@
 # Product roadmap
 
-Last planned: 30 October 2026. Baseline source: `300a8eb`. P0-01 is implemented with the tab-scoped recovery boundary recorded in PROJECT-STATUS.md; P0-02 has single-host native Windows repairs/acceptance and open physical-device/packaged checks; P0-03 regression infrastructure is implemented and verified. Other items remain planned. Track acceptance against [REQUIREMENTS.md](REQUIREMENTS.md), with evidence in [PROJECT-STATUS.md](PROJECT-STATUS.md).
+Last planned: 30 October 2026. Baseline source: `300a8eb`. P0-01 is implemented with the tab-scoped recovery boundary recorded in PROJECT-STATUS.md; P0-02 has single-host native Windows repairs/acceptance and open physical-device/packaged checks; P0-03 regression infrastructure is implemented and verified. P1-01 software is implemented with physical multi-device acceptance still open. Other items remain planned. Track acceptance against [REQUIREMENTS.md](REQUIREMENTS.md), with evidence in [PROJECT-STATUS.md](PROJECT-STATUS.md).
 
 ## Priority decision
 
@@ -85,7 +85,7 @@ Dependencies: none; retain coverage for P0-01/P0-02 as they land.
 
 ## P1: complete the problem statement
 
-### P1-01 — Focused screen view and classroom triage
+### P1-01 — Focused screen view and classroom triage (software implemented; physical acceptance partial)
 
 Requirements: REQ-02, REQ-04, REQ-09.
 
