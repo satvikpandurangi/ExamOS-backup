@@ -634,12 +634,20 @@ function App() {
 
         </div>
         <div hidden={route.page !== "examinations"}>
+          {selected && (
+            <ExamProgress
+              token={token}
+              sessionId={selected}
+              onReview={(studentId, sessionId) =>
+                navigate("incidents", { studentId, sessionId })
+              }
+            />
+          )}
           <QuestionPapers
             token={token}
             sessions={state.sessions}
             devices={state.devices}
           />
-          {selected && <ExamProgress token={token} sessionId={selected} />}
         </div>
         <div hidden={route.page !== "incidents"}>
           <section className="panel" id="review">
@@ -668,55 +676,64 @@ function App() {
               <div className="empty">No events in this session.</div>
             ) : (
               <div className="event-list">
-                {events.map((e) => (
-                  <article className="event" key={e.id}>
-                    <div>
-                      <span
-                        className={
-                          "badge " + (e.kind === "rule_alert" ? "amber" : "")
-                        }
-                      >
-                        {e.kind.replaceAll("_", " ")}
-                      </span>
-                      <strong>{e.device_name}</strong>
-                      <time>{new Date(e.created_at).toLocaleString()}</time>
-                      <p>
-                        {e.detail.app ||
-                          e.detail.reason ||
-                          "Student consent updated"}
-                      </p>
-                      {e.detail.reason && e.detail.app && (
-                        <p>{e.detail.reason}</p>
-                      )}
-                      {e.review && <blockquote>Review: {e.review}</blockquote>}
-                    </div>
-                    <form
-                      onSubmit={(ev) => {
-                        ev.preventDefault();
-                        const form = ev.target;
-                        run(async () => {
-                          await api("/events/" + e.id + "/review", {
-                            review: new FormData(form).get("review"),
+                {events
+                  .filter(
+                    (e) =>
+                      !new URLSearchParams(route.query).get("studentId") ||
+                      e.device_id ===
+                        new URLSearchParams(route.query).get("studentId"),
+                  )
+                  .map((e) => (
+                    <article className="event" key={e.id}>
+                      <div>
+                        <span
+                          className={
+                            "badge " + (e.kind === "rule_alert" ? "amber" : "")
+                          }
+                        >
+                          {e.kind.replaceAll("_", " ")}
+                        </span>
+                        <strong>{e.device_name}</strong>
+                        <time>{new Date(e.created_at).toLocaleString()}</time>
+                        <p>
+                          {e.detail.app ||
+                            e.detail.reason ||
+                            "Student consent updated"}
+                        </p>
+                        {e.detail.reason && e.detail.app && (
+                          <p>{e.detail.reason}</p>
+                        )}
+                        {e.review && (
+                          <blockquote>Review: {e.review}</blockquote>
+                        )}
+                      </div>
+                      <form
+                        onSubmit={(ev) => {
+                          ev.preventDefault();
+                          const form = ev.target;
+                          run(async () => {
+                            await api("/events/" + e.id + "/review", {
+                              review: new FormData(form).get("review"),
+                            });
+                            await refresh();
                           });
-                          await refresh();
-                        });
-                      }}
-                    >
-                      <label className="sr-only" htmlFor={"review-" + e.id}>
-                        Teacher review
-                      </label>
-                      <input
-                        id={"review-" + e.id}
-                        name="review"
-                        required
-                        maxLength={2000}
-                        placeholder="Add teacher review…"
-                        defaultValue={e.review || ""}
-                      />
-                      <button className="secondary">Save review</button>
-                    </form>
-                  </article>
-                ))}
+                        }}
+                      >
+                        <label className="sr-only" htmlFor={"review-" + e.id}>
+                          Teacher review
+                        </label>
+                        <input
+                          id={"review-" + e.id}
+                          name="review"
+                          required
+                          maxLength={2000}
+                          placeholder="Add teacher review…"
+                          defaultValue={e.review || ""}
+                        />
+                        <button className="secondary">Save review</button>
+                      </form>
+                    </article>
+                  ))}
               </div>
             )}
           </section>
@@ -746,6 +763,11 @@ function App() {
             }
             token={token}
             revision={proctorRevision}
+            reviewQuery={route.query}
+            onOpenControls={(sessionId) => {
+              setSelected(sessionId);
+              navigate("examinations");
+            }}
             selectedIncident={selectedIncident}
             onCloseIncident={() => setSelectedIncident(null)}
             onPendingCount={setPendingCount}

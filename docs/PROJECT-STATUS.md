@@ -97,6 +97,20 @@ Acceptance observed on 31 October 2026: the actual Windows source agent delivere
 
 Open: two physical devices simultaneously visible, LAN/classroom latency/capacity, comprehensive accessibility audit and future classroom-role integration. The P1-01 software can be reviewed, but multi-device physical acceptance and the product release gate remain open.
 
+## Event review and individual exam-control increment
+
+User-authorized separate workstream on `feature/incident-review-controls`, based on published P0-01 commit `0178aea`. Maps to REQ-05/06/07/08/09/12 and partial P1-04/P1-05; does not complete the administrator-role or browser-policy roadmap items.
+
+Implemented progress/flag triage, student/session incident filters, existing protected evidence and dismissal workflow, explicit per-attempt pause/resume/end with reasons, replay-safe receipts and atomic state/audit writes. Migration 008 preserves the existing status model and adds pause metadata plus the control ledger. The deadline continues during pause. Student APIs reject paused response/PDF requests, and the student page shows the hold, preserves tab-scoped text, resumes eligible saves, and distinguishes an invigilator-ended attempt. See [EVENT-REVIEW.md](EVENT-REVIEW.md) for the API, timer and monitoring contract.
+
+Observed: production build and all ten Node tests passed with the existing bundle warning. SQL integration tests passed for ownership, replay/conflict, paused API enforcement, unchanged deadlines, student isolation, atomic rollback on audit failure, individual end and timeout. Real system-Chrome workflow passed for progress/filter, protected codec-fixture snapshot rendering, ignore/dismiss, pause across reload, resume and end. The media is explicitly a codec fixture; this is not native webcam, OS-lockdown or actual detector validation. Desktop/mobile overflow checks passed for the teacher controls and paused student page. The P0-01 browser failure suite and existing teacher/student PDF examination browser workflow also passed after this change. Native PostgreSQL and physical-device acceptance remain unverified. No live service was restarted, and this branch has not been pushed by this implementation task.
+
+## Phone/app/window pipeline increment - 31 October 2026
+
+Scope: REQ-05/06/08/09/12 and EXT-02 on the same isolated feature branch. Started assigned-examination application violations now join the proctor incident workflow, with the observed executable. Browser exit events have a ten-second per-category/attempt cooldown. Incident details can request a separately consented camera check linked through migration 009; source observations are preserved and media are not duplicated. These are later camera snapshots, not stored screen previews.
+
+Observed: production build, all ten Node regression tests and the end-to-end browser/SQL/Socket.IO pipeline passed using explicit JPEG codec and DOM-event fixtures: consent rejection, allowed/prohibited apps, window-blur/fullscreen events, protected phone evidence, linked camera snapshot, ignore/dismiss and manual pause/end. This is not real webcam/model inference or physical foreground-window validation. The host still lacks av, win32crypt, requests and socketio Python modules for the full native agent; physical phone-detection acceptance remains pending. See EVENT-REVIEW.md for the repeatable hardware checklist. No live service was restarted and no changes were pushed.
+
 ## Next action
 
 Coordinate review/merge of this feature branch before shared-main changes. Next dependency-ordered software work is P1-03 classroom roles/account lifecycle, then P1-04 audit/reports, followed by policy/commands and Linux parity. Finish the open P0-02 physical/packaged and P1-01 multi-device acceptance when access is available. Do not mark the Windows/Linux release gate accepted from these single-host/CI results.
@@ -119,3 +133,15 @@ Next action:
 ```
 
 Keep historical reports attributable to their builds. Never convert a planned check into a passed result.
+
+## Combined workstream integration — 31 October 2026
+
+Source parents: monitoring `33c1bb2` and incident review `a77e559`, preserved by local backup branches and a normal merge on `integration/monitoring-incident-review`. Original source branches and shared main are unchanged. Requirements: REQ-01/02/03/04/05/06/07/08/09/10/11/12, EXT-01/02; this is integration acceptance, not completion of all these requirements.
+
+Document conflicts were combined, preserving both historical reports. Code merged with both current-socket/lease guards and incoming incident/control behavior. Critical incoming exam, evidence, autosave and control modules and migrations were compared byte-for-byte with their parent; original agent lease/focus and isolated database helpers were likewise retained. Migrations 001–007 are unchanged; new 008 and 009 have no numbering collisions. No operational migration or restart was performed: the local server currently has an active maths session.
+
+Combined verification using Node 24.22.2: clean `npm ci`, production build, all **12** Node tests passed on both isolated PGlite and actual PostgreSQL 16.15. Tests include paused-save recovery, duplicate commands, atomic audit rollback, foreign ownership, preserved answers, timer continuation, consent withdrawal followed by resume without regrant, individual-end monitoring invalidation/classmate isolation and expired monitoring rejection. All five required browser workflows passed (PDF examination, answer recovery, exam controls, policy review and focused screens); control and policy browsers also passed on PostgreSQL. Dashboard regression and actual loopback trusted HTTPS/polling/WSS with untrusted/expired rejection passed. Policy browser login now waits for authenticated dashboard readiness before navigating, avoiding its observed login redirect race. Synthetic codec/DOM event tests do not establish physical phone recognition.
+
+Native source-agent follow-up passed after explicitly restoring the visible test window before consent actions: 17 real screen previews, observed network stop 4.732 s, native handle close 4.642 s, local stops 1.007–1.261 ms. Actual backend process restart with native sharing also passed (stop observed 0.040 s), preserving ended session history and requiring manual reconnect/new session/fresh consent. The earlier integrated native attempt stopped when the test window minimized; its failure remains in ignored logs, and a single successful rerun is not a general claim that every historic consent timing issue is solved. No webcam was opened or screen pixels saved. Packaged-agent, real detector, second-device/LAN and Linux acceptance remain pending.
+
+CI now includes both incoming browser suites using isolated native PostgreSQL fixtures. Detailed private logs use `data/tmp/integration-*` and are excluded from Git. Highest-priority continuation is bounded P0-02 native consent/control acceptance; broader roles/policies/Linux work remains on the roadmap under the owner's usage constraint.

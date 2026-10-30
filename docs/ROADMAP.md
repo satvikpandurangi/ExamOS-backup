@@ -134,6 +134,8 @@ Dependencies: P1-03; integrate policy details from P1-02 when available.
 
 ### P1-05 — Acknowledged classroom controls
 
+User-authorized separate increment: individual exam pause/resume/end and atomic control audit are implemented on `feature/incident-review-controls`. The deadline continues during an exam hold; this differs from pausing monitoring. See [EVENT-REVIEW.md](EVENT-REVIEW.md) and PROJECT-STATUS.md for scope and evidence. Full classroom command acknowledgement, announcements, role expansion and managed OS restrictions remain planned.
+
 Requirements: REQ-06, REQ-07, REQ-08, REQ-09, REQ-12.
 
 Work: implement classroom/device-scoped announcements, pause monitoring, request resume with fresh student consent, end session, and revoke device through a shared command model. Display pending/acknowledged/failed/timed-out results and per-device outcomes.
@@ -197,3 +199,7 @@ Dependencies: P0 and required P1 items; P2-01 capacity evidence. Provisioning ma
 | Optional extension release        | Relevant extension acceptance plus regression of the core contract; update scope/status without weakening the initial requirements.                                                                                       |
 
 For every completed backlog item, record the source/build, test environment, checks, results, requirement coverage and remaining limitations. No dates or estimates are commitments until scope, staffing and hardware are known.
+
+## Integrated acceptance increment
+
+Incident review/manual controls (partial P1-04/P1-05) and monitoring/focused screens are combined without completing those roadmap items. Twelve integrated Node tests, native PostgreSQL and browser coverage are recorded in PROJECT-STATUS.md. Priority remains P0-02 native consent/control acceptance; physical/platform release gates remain open.

@@ -68,4 +68,6 @@ jobs:
       - run: node tests/exam-browser.mjs
       - run: node tests/answer-browser.mjs
       - run: node tests/focused-screen-browser.mjs
+      - run: node tests/exam-controls-browser.mjs
+      - run: node tests/policy-review-browser.mjs
       - run: git diff --exit-code

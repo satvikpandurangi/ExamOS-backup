@@ -34,3 +34,9 @@ The single-server startup ends active examinations on restart, preserving stored
 ## Focused primary-screen view
 
 `dashboard/src/ScreenMonitor.jsx` consumes the same authorized transient preview stream as the grid. It binds images to the current session, connection, device and consent, and expires them after ten seconds using local receipt age. A native HTML dialog supplies modal keyboard/focus behavior, with explicit device/session metadata and technical empty/error states. It does not request capture or read saved camera evidence. Filters and ordering are local views of the existing teacher-scoped device API; future classroom roles must retain server-side scoping.
+
+## Individual examination controls
+
+`server/exam-controls.js` installs the ownership-checked teacher control route. Migration 008 adds pause/reason metadata and the `exam_controls` ledger. Human pause/resume/end transitions, receipts and paper-audit records commit in one SQL statement. Identical command retries return the original receipt. A pause blocks response/PDF access while the deadline continues; it does not change monitoring consent. End uses the existing per-device completion callback to invalidate monitoring. Student UI reflects server state through its two-second poll. Full OS lockdown, managed-browser website rules and administrator RBAC are separate roadmap work. See [docs/EVENT-REVIEW.md](docs/EVENT-REVIEW.md).
+
+Migration 009 links a teacher-requested camera check to its source proctor incident. The camera-check event and its media retain their own IDs and capture times; the source incident detail API resolves linked evidence under teacher ownership. Started-exam allowlist failures are recorded as prohibited-application proctor incidents by the server after sample consent checks. Browser events remain separately consented and have a per-category/attempt ten-second cooldown. No screen preview bytes are newly persisted.
