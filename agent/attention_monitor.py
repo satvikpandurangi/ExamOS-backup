@@ -1,4 +1,6 @@
-"""Offline attention monitoring. Tracks student focus and detects suspicious behaviors."""
+"""Offline attention monitoring. Tracks student focus and detects suspicious behaviors.
+Only captures evidence when ACTUAL cheating is detected during an active examination."""
+
 import cv2
 import numpy as np
 import time
@@ -6,12 +8,15 @@ import uuid
 from datetime import datetime, timezone
 from collections import deque
 
-# Constants for detection thresholds
-FACING_THRESHOLD = 0.65  # Minimum face detection confidence
-LOOKINGAway_THRESHOLD = 0.55  # Face direction threshold for "looking away"
-GLANCE_THRESHOLD = 3.0  # Seconds between glances to count as suspicious
-SIDESWAP_THRESHOLD = 2.0  # Seconds between screen/other glances to count as suspicious
-MIN_FRAME_CONFIDENCE = 0.5  # Minimum overall confidence for a frame to be valid
+# Constants - STRICTER thresholds to reduce false positives
+# Only flag as cheating after SUSTAINED suspicious behavior
+LOOKING_AWAY_MIN_DURATION = 3.0  # Seconds of sustained looking away before flagging
+NOT_FACING_MIN_DURATION = 2.0  # Seconds not facing camera
+NO_FACE_MIN_DURATION = 4.0  # Seconds with no face detected
+SIDE_GLANCE_MIN_COUNT = 3  # Number of side glances before flagging
+
+# Cooldowns between capture events (prevent spam)
+CAPTURE_COOLDOWN = 10.0  # Seconds between captures
 
 
 class FaceAttentionDetector:
@@ -26,10 +31,11 @@ class FaceAttentionDetector:
             cv2.data.haarcascades + 'haarcascade_eye.xml'
         )
 
-        # Attention state tracking
-        self.since = {}  # Track when behaviors started
-        self.cooldowns = {}  # Cooldown periods between events
-        self.frame_history = deque(maxlen=10)  # Last 10 frames for trend analysis
+        # Attention state tracking - tracks when behaviors STARTED
+        self.behavior_start = {}  # When a behavior first started
+        self.side_glance_count = 0  # Count repeated side glances
+        self.last_side_glance_time = 0
+        self.frame_history = deque(maxlen=30)  # Last 30 frames (~7.5 seconds at 4fps)
 
     def detect_faces(self, frame):
         """Detect faces in the frame and return their locations and attention state."""
@@ -56,7 +62,7 @@ class FaceAttentionDetector:
 
             results.append({
                 'bbox': (x, y, x+w, y+h),
-                'confidence': 0.85,  # Base confidence for Haar cascade
+                'confidence': 0.85,
                 'gaze_direction': gaze_direction,
                 'attention_state': attention_state,
                 'eyes': eyes,
@@ -70,10 +76,7 @@ class FaceAttentionDetector:
         if len(eyes) < 2:
             return {'direction': 'center', 'confidence': 0.3}
 
-        # Sort eyes by y position (top, bottom)
         eyes_sorted = sorted(eyes, key=lambda e: e[1])
-
-        # Calculate eye centers
         eye_centers = []
         for (ex, ey, ew, eh) in eyes_sorted[:2]:
             eye_centers.append((ex + ew/2, ey + eh/2))
@@ -81,33 +84,31 @@ class FaceAttentionDetector:
         if len(eye_centers) < 2:
             return {'direction': 'center', 'confidence': 0.3}
 
-        # Calculate angle between eyes (should be ~0 for frontal face)
         eye_angle = np.degrees(np.arctan2(
             eye_centers[1][1] - eye_centers[0][1],
             eye_centers[1][0] - eye_centers[0][0]
         ))
 
-        # Calculate horizontal offset (gaze direction)
         left_eye_center = eye_centers[0]
         right_eye_center = eye_centers[1]
-
         face_center_x = face_size[0] / 2
+
         left_offset = left_eye_center[0] - face_center_x
         right_offset = right_eye_center[0] - face_center_x
 
-        # Determine gaze direction
-        if abs(left_offset) < face_size[0] * 0.15 and abs(right_offset) < face_size[0] * 0.15:
+        # More strict thresholds - require SIGNIFICANT offset for "away"
+        if abs(left_offset) < face_size[0] * 0.12 and abs(right_offset) < face_size[0] * 0.12:
             direction = 'forward'
-            confidence = 0.7
-        elif left_offset < -face_size[0] * 0.2:
+            confidence = 0.8
+        elif left_offset < -face_size[0] * 0.25:
             direction = 'left'
-            confidence = 0.6
-        elif right_offset < -face_size[0] * 0.2:
+            confidence = 0.7
+        elif right_offset < -face_size[0] * 0.25:
             direction = 'right'
-            confidence = 0.6
-        elif left_offset > face_size[0] * 0.2 or right_offset > face_size[0] * 0.2:
-            direction = 'away'  # Looking away from camera
-            confidence = 0.65
+            confidence = 0.7
+        elif left_offset > face_size[0] * 0.25 or right_offset > face_size[0] * 0.25:
+            direction = 'away'
+            confidence = 0.75
         else:
             direction = 'center'
             confidence = 0.5
@@ -122,20 +123,31 @@ class FaceAttentionDetector:
         """Estimate overall attention state from gaze."""
         direction = gaze.get('direction', 'center')
 
-        # Map gaze to attention state
         if direction == 'forward':
-            return {'state': 'facing_screen', 'score': 0.9}
+            return {'state': 'facing_screen', 'score': 0.95}
         elif direction in ('left', 'right'):
-            return {'state': 'looking_away', 'score': 0.7}
+            return {'state': 'looking_away', 'score': 0.75}
         elif direction == 'away':
-            return {'state': 'not_facing_camera', 'score': 0.8}
+            return {'state': 'not_facing_camera', 'score': 0.85}
         else:
             return {'state': 'uncertain', 'score': 0.4}
 
-    def update(self, detections):
-        """Update attention state with new detections and return suspicious behaviors."""
+    def reset_counters(self):
+        """Reset behavior counters."""
+        self.behavior_start = {}
+        self.side_glance_count = 0
+        self.last_side_glance_time = 0
+        self.frame_history.clear()
+
+    def update(self, detections, exam_active=True):
+        """Update attention state and return ONLY actual cheating behaviors.
+
+        Args:
+            detections: Face detection results from current frame
+            exam_active: Only flag cheating during active exam (default True)
+        """
         now = time.monotonic()
-        suspicious = []
+        cheating = []  # Only actual cheating, not normal behavior
 
         # Track frame history
         self.frame_history.append({
@@ -144,142 +156,190 @@ class FaceAttentionDetector:
             'has_face': len(detections) > 0
         })
 
+        # If no exam is active, don't flag anything
+        if not exam_active:
+            self.reset_counters()
+            return cheating
+
         if not detections:
-            # No face detected - possible looking away or blocked camera
-            if len(self.frame_history) >= 3:
-                recent = [f for f in self.frame_history[-3:] if not f['has_face']]
-                if len(recent) >= 2:
-                    suspicious.append({
+            # No face detected - could be cheating (looking away from camera)
+            if 'no_face_detected' not in self.behavior_start:
+                self.behavior_start['no_face_detected'] = now
+            else:
+                duration = now - self.behavior_start['no_face_detected']
+                if duration >= NO_FACE_MIN_DURATION:
+                    cheating.append({
                         'category': 'no_face_detected',
-                        'detail': {'duration': round(now - recent[0]['time'], 1)},
-                        'severity': 'medium'
+                        'detail': {'duration': round(duration, 1)},
+                        'severity': 'high'
                     })
-                    self.since['no_face_detected'] = now
-            return suspicious
+            return cheating
+
+        # Reset face-related tracking when face is detected
+        if 'no_face_detected' in self.behavior_start:
+            del self.behavior_start['no_face_detected']
 
         # Analyze first detected face
         face = detections[0]
         gaze = face.get('gaze_direction', {})
         attention = face.get('attention_state', {})
 
-        # Check for looking away
+        # Check for SUSTAINED looking away (not quick glances)
         if attention.get('state') == 'looking_away':
-            if 'looking_away' not in self.since:
-                self.since['looking_away'] = now
-            elif now - self.since['looking_away'] >= 1.0:  # 1 second threshold
-                suspicious.append({
-                    'category': 'looking_away',
-                    'detail': {
-                        'direction': gaze.get('direction', 'unknown'),
-                        'duration': round(now - self.since['looking_away'], 1)
-                    },
-                    'severity': 'medium'
-                })
+            if 'looking_away' not in self.behavior_start:
+                self.behavior_start['looking_away'] = now
+            else:
+                duration = now - self.behavior_start['looking_away']
+                if duration >= LOOKING_AWAY_MIN_DURATION:
+                    cheating.append({
+                        'category': 'looking_away',
+                        'detail': {
+                            'direction': gaze.get('direction', 'unknown'),
+                            'duration': round(duration, 1)
+                        },
+                        'severity': 'medium'
+                    })
+                    # Reset after flagging to prevent repeated flags
+                    self.behavior_start['looking_away'] = now
 
-        # Check for not facing camera
+        # Check for not facing camera at all (serious)
         if attention.get('state') == 'not_facing_camera':
-            if 'not_facing_camera' not in self.since:
-                self.since['not_facing_camera'] = now
-            elif now - self.since['not_facing_camera'] >= 1.5:
-                suspicious.append({
-                    'category': 'not_facing_camera',
-                    'detail': {
-                        'duration': round(now - self.since['not_facing_camera'], 1)
-                    },
-                    'severity': 'high'
-                })
+            if 'not_facing_camera' not in self.behavior_start:
+                self.behavior_start['not_facing_camera'] = now
+            else:
+                duration = now - self.behavior_start['not_facing_camera']
+                if duration >= NOT_FACING_MIN_DURATION:
+                    cheating.append({
+                        'category': 'not_facing_camera',
+                        'detail': {'duration': round(duration, 1)},
+                        'severity': 'high'
+                    })
+                    self.behavior_start['not_facing_camera'] = now
 
-        # Check for screen switching (side glances)
+        # Check for MULTIPLE side glances (pattern of looking around, not just one glance)
         if gaze.get('direction') in ('left', 'right'):
-            if 'side_glance' not in self.since:
-                self.since['side_glance'] = now
-            elif now - self.since['side_glance'] >= 0.5:  # Shorter threshold for glances
-                suspicious.append({
-                    'category': 'side_glance',
-                    'detail': {
-                        'direction': gaze.get('direction'),
-                        'frequency': 'repeated'
-                    },
-                    'severity': 'low'
-                })
-                self.since['side_glance'] = now  # Reset for repeated detection
+            if 'side_glance' not in self.behavior_start:
+                self.behavior_start['side_glance'] = now
+                self.side_glance_count = 1
+                self.last_side_glance_time = now
+            else:
+                # If this is a NEW glance (not too close to last)
+                if now - self.last_side_glance_time > 1.0:
+                    self.side_glance_count += 1
+                    self.last_side_glance_time = now
 
-        return suspicious
+                # Only flag if multiple repeated glances
+                if self.side_glance_count >= SIDE_GLANCE_MIN_COUNT:
+                    cheating.append({
+                        'category': 'repeated_side_glances',
+                        'detail': {
+                            'count': self.side_glance_count,
+                            'direction': gaze.get('direction')
+                        },
+                        'severity': 'medium'
+                    })
+                    # Reset after flagging
+                    self.side_glance_count = 0
+
+        return cheating
 
 
 class AttentionMonitor:
-    """Monitors student attention and detects cheating behaviors."""
+    """Monitors student attention and detects ACTUAL cheating behaviors only."""
 
     def __init__(self, event_callback, snapshot_callback, cooldowns=None):
         self.event_callback = event_callback  # Send events to server
-        self.snapshot_callback = snapshot_callback  # Take snapshot on suspicion
+        self.snapshot_callback = snapshot_callback  # Take snapshot ONLY on confirmed cheating
         self.detector = FaceAttentionDetector()
         self.suspended = False
         self.session_id = None
+        self.exam_active = False  # Only active during started exam
         self.enabled = False
         self.last_event_time = {}
+        self.last_snapshot_time = 0
         self.cooldowns = cooldowns or {
-            'looking_away': 3.0,
-            'side_glance': 2.0,
-            'not_facing_camera': 5.0,
-            'no_face_detected': 3.0
+            'looking_away': 5.0,
+            'repeated_side_glances': 5.0,
+            'not_facing_camera': 8.0,
+            'no_face_detected': 8.0
         }
 
-        # Snapshot buffer for recent frames
-        self.snapshot_buffer = deque(maxlen=5)
-        self.last_snapshot_time = 0
+        # Snapshot buffer - only keeps frames when suspicious
+        self.snapshot_buffer = deque(maxlen=10)
 
-    def start(self, session_id):
-        """Start attention monitoring for a session."""
+    def start(self, session_id, exam_active=False):
+        """Start attention monitoring. Only captures during active exam."""
         self.session_id = session_id
+        self.exam_active = exam_active  # Won't capture snapshots unless exam is active
         self.enabled = True
         self.suspended = False
         self.last_event_time = {}
-        self.detector = FaceAttentionDetector()  # Reset detector
+        self.last_snapshot_time = 0
+        self.detector = FaceAttentionDetector()
+
+    def set_exam_active(self, active):
+        """Update exam active state - only captures when True."""
+        self.exam_active = active
 
     def stop(self):
         """Stop attention monitoring."""
         self.enabled = False
         self.session_id = None
+        self.exam_active = False
         self.suspended = True
+        self.detector.reset_counters()
 
     def process_frame(self, frame, jpeg_bytes=None):
-        """Process a webcam frame and detect suspicious behaviors."""
+        """Process webcam frame and detect ONLY actual cheating.
+
+        Key logic:
+        - Only process if enabled AND not suspended
+        - Only capture snapshots if exam is ACTUALLY active
+        - Only flag SUSTAINED suspicious behavior (not quick glances)
+        - Has cooldown to prevent snapshot spam
+        """
         if not self.enabled or self.suspended:
             return
 
         # Detect faces and analyze attention
         detections = self.detector.detect_faces(frame)
-        suspicious = self.detector.update(detections)
 
-        # Buffer frames for snapshots
-        if jpeg_bytes is not None:
+        # Get actual cheating behaviors ONLY (pass exam_active to filter)
+        cheating = self.detector.update(detections, exam_active=self.exam_active)
+
+        # Buffer frames ONLY when suspicious behavior is detected
+        if cheating and jpeg_bytes is not None:
             self.snapshot_buffer.append({
                 'frame': frame.copy(),
                 'jpeg': jpeg_bytes,
                 'time': time.monotonic()
             })
 
-        # Process suspicious behaviors
-        for event in suspicious:
+        # Process actual cheating events - NOT normal behavior
+        for event in cheating:
             category = event['category']
             now = time.monotonic()
 
-            # Check cooldown
+            # Check cooldown between captures
             if category in self.last_event_time:
-                cooldown = self.cooldowns.get(category, 3.0)
+                cooldown = self.cooldowns.get(category, 5.0)
                 if now - self.last_event_time[category] < cooldown:
                     continue
 
             self.last_event_time[category] = now
 
-            # Send event to server
+            # ONLY send to server if exam is actually active
+            if not self.exam_active:
+                continue
+
+            # Send event to server (teacher gets notified)
             payload = {
                 'sessionId': self.session_id,
                 'category': f'attention_{category}',
                 'clientEventId': str(uuid.uuid4()),
                 'detail': event['detail'],
                 'severity': event['severity'],
+                'examActive': True,
                 'observedAt': datetime.fromtimestamp(
                     time.time(), timezone.utc
                 ).isoformat(timespec='milliseconds')
@@ -287,38 +347,48 @@ class AttentionMonitor:
 
             self.event_callback(payload)
 
-            # Take snapshot for evidence (if not already taken recently)
-            if now - self.last_snapshot_time >= 2.0:
+            # CRITICAL: Only capture snapshot if:
+            # 1. Exam is actually in progress (exam_active=True)
+            # 2. Hasn't captured recently (cooldown)
+            # 3. Has buffered frames
+            if self.exam_active and now - self.last_snapshot_time >= CAPTURE_COOLDOWN:
                 self._capture_snapshot(event)
 
     def _capture_snapshot(self, event):
-        """Capture and send snapshot for suspicious behavior evidence."""
+        """Capture and send snapshot ONLY for confirmed cheating."""
         self.last_snapshot_time = time.monotonic()
 
-        # Get most recent frame from buffer
+        # Get most recent buffered frame
         if self.snapshot_buffer:
             recent = self.snapshot_buffer[-1]
             snapshot_data = {
                 'snapshot': recent['jpeg'],
                 'category': event['category'],
                 'severity': event['severity'],
+                'examActive': True,
                 'timestamp': datetime.fromtimestamp(
                     time.time(), timezone.utc
                 ).isoformat(timespec='milliseconds'),
-                'detail': event['detail']
+                'detail': event['detail'],
+                'evidence': True  # This is actual evidence, not just monitoring
             }
 
-            # Trigger snapshot callback
+            # Trigger snapshot callback - only for confirmed cheating
             if self.snapshot_callback:
                 self.snapshot_callback(snapshot_data)
 
-    def suspend(self):
-        """Temporarily suspend monitoring (e.g., during exam hold)."""
-        self.suspended = True
+            # Clear buffer after capture
+            self.snapshot_buffer.clear()
 
-    def resume(self):
-        """Resume monitoring after suspension."""
+    def suspend(self):
+        """Temporarily suspend monitoring (e.g., during exam hold/pause)."""
+        self.suspended = True
+        self.exam_active = False  # Don't capture during suspend
+
+    def resume(self, exam_active=False):
+        """Resume monitoring. Only capture if exam is active."""
         self.suspended = False
+        self.exam_active = exam_active
 
     def is_monitoring(self):
         """Check if attention monitoring is active."""
