@@ -1,0 +1,14 @@
+import 'dotenv/config';
+import {readFile} from 'node:fs/promises';
+if(process.env.TLS_CERT)throw Error('This restart helper is for the loopback HTTP workspace. Use your managed HTTPS service restart procedure for LAN deployment.');
+const lines=await readFile('data/initial-login.txt','utf8');
+const login=Object.fromEntries(lines.split(/\r?\n/).filter(s=>s.includes(': ')).map(s=>{const i=s.indexOf(': ');return[s.slice(0,i),s.slice(i+2)]}));
+const base='http://127.0.0.1:'+(process.env.PORT||3000);
+const r=await fetch(base+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:login.Email,password:login.Password}),signal:AbortSignal.timeout(5000)});
+if(!r.ok)throw Error('Cannot authenticate the existing teacher; refusing to restart automatically.');
+const {token}=await r.json();
+const response=await fetch(base+'/api/state',{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(5000)});
+if(!response.ok)throw Error('Cannot verify examination state; refusing to restart.');
+const state=await response.json();
+if(state.sessions.some(s=>s.status==='active')||state.devices.some(d=>d.consented))throw Error('An examination or monitoring session is active. End it in the dashboard before restarting.');
+console.log('Authenticated preflight passed: no active examination or monitoring.');

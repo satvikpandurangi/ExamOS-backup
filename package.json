@@ -1,0 +1,38 @@
+{
+  "name": "examos",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server/index.js",
+    "build": "vite build dashboard --outDir dist",
+    "test": "node --test tests/*.test.js",
+    "test:exam-browser": "node tests/exam-browser.mjs",
+    "test:exam-windows": "node tests/exam-windows.mjs",
+    "test:proctor-windows": "node tests/proctor-windows.mjs",
+    "migrate": "node server/migrate.js",
+    "teacher": "node server/create-teacher.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "helmet": "^8.1.0",
+    "jpeg-js": "^0.4.4",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.5.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.4.299",
+    "pg": "^8.16.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@playwright/test": "^1.64.1",
+    "prettier": "^3.9.10",
+    "vite": "^7.2.0"
+  }
+}

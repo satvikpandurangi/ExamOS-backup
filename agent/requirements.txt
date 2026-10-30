@@ -1,0 +1,10 @@
+python-socketio[client]>=5.13,<6
+requests>=2.32,<3
+mss>=10,<12
+Pillow>=11,<13
+psutil>=7,<8
+pywin32>=310; sys_platform == 'win32'
+cryptography>=45,<49
+opencv-python-headless==4.14.0.94
+numpy==2.5.4
+av==19.0.2

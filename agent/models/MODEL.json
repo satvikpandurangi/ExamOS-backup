@@ -1,0 +1,11 @@
+{
+  "name": "OpenCV Zoo YOLOX-s COCO object detection",
+  "commit": "a74cdfad334b102cbd8daed769fbe1d4cb1c327a",
+  "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/a74cdfad334b102cbd8daed769fbe1d4cb1c327a/models/object_detection_yolox/object_detection_yolox_2022nov.onnx",
+  "sha256": "c5c2d13e59ae883e6af3b45daea64af4833a4951c92d116ec270d9ddbe998063",
+  "bytes": 35858002,
+  "license": "Apache-2.0; see LICENSE-YOLOX.txt",
+  "usedClasses": {"0": "person", "67": "cell phone"},
+  "excludedInferences": ["identity", "attention", "gaze", "emotion", "interaction", "suspicious movement", "cheating"],
+  "runtimeNetwork": false
+}

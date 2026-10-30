@@ -1,0 +1,11 @@
+ALTER TABLE proctor_settings ADD COLUMN cooldown_seconds integer NOT NULL DEFAULT 30 CHECK(cooldown_seconds BETWEEN 10 AND 300);
+ALTER TABLE proctor_settings ADD COLUMN clip_seconds integer NOT NULL DEFAULT 10 CHECK(clip_seconds BETWEEN 4 AND 20);
+ALTER TABLE proctor_events ADD COLUMN attempt_id uuid REFERENCES exam_attempts(id);
+UPDATE proctor_events e SET attempt_id=x.id FROM exam_attempts x WHERE x.device_id=e.device_id AND x.session_id=e.session_id;
+ALTER TABLE proctor_events ADD COLUMN clip bytea;
+ALTER TABLE proctor_events ADD COLUMN clip_status text NOT NULL DEFAULT 'not_consented' CHECK(clip_status IN ('not_consented','pending','available','unavailable','deleted','expired'));
+ALTER TABLE proctor_events ADD COLUMN clip_metadata jsonb;
+ALTER TABLE proctor_events DROP CONSTRAINT proctor_events_review_status_check;
+ALTER TABLE proctor_events ADD CONSTRAINT proctor_events_review_status_check CHECK(review_status IN ('pending','reviewed','dismissed','false_positive','requires_investigation'));
+CREATE TABLE proctor_reviews(id uuid PRIMARY KEY,incident_id uuid NOT NULL REFERENCES proctor_events(id),teacher_id uuid NOT NULL REFERENCES teachers(id),status text NOT NULL CHECK(status IN ('reviewed','dismissed','false_positive','requires_investigation')),comment text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX proctor_reviews_incident ON proctor_reviews(incident_id,created_at);

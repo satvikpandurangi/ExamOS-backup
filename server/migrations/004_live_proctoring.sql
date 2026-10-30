@@ -1,0 +1,4 @@
+CREATE TABLE proctor_settings(teacher_id uuid PRIMARY KEY REFERENCES teachers(id),retention_days integer NOT NULL DEFAULT 7 CHECK(retention_days BETWEEN 1 AND 30));
+CREATE TABLE proctor_events(id uuid PRIMARY KEY,teacher_id uuid NOT NULL REFERENCES teachers(id),session_id uuid NOT NULL REFERENCES sessions(id),device_id uuid NOT NULL REFERENCES devices(id),category text NOT NULL,detail jsonb NOT NULL DEFAULT '{}',observed_at timestamptz NOT NULL,received_at timestamptz NOT NULL DEFAULT now(),evidence bytea,evidence_expires_at timestamptz,evidence_deleted_at timestamptz,review_status text NOT NULL DEFAULT 'pending' CHECK(review_status IN ('pending','reviewed','dismissed')),review_note text NOT NULL DEFAULT '',reviewed_at timestamptz);
+CREATE INDEX proctor_events_teacher_session ON proctor_events(teacher_id,session_id,received_at);
+ALTER TABLE exam_attempts ADD COLUMN focus_consent boolean NOT NULL DEFAULT false;
