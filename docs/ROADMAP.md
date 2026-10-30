@@ -203,3 +203,5 @@ For every completed backlog item, record the source/build, test environment, che
 ## Integrated acceptance increment
 
 Incident review/manual controls (partial P1-04/P1-05) and monitoring/focused screens are combined without completing those roadmap items. Twelve integrated Node tests, native PostgreSQL and browser coverage are recorded in PROJECT-STATUS.md. Priority remains P0-02 native consent/control acceptance; physical/platform release gates remain open.
+
+Post-merge P0-02 continuation: real Windows source pause/withdraw/resume/fresh-consent/teacher-end and process restart checks passed. Packaged/second-device/LAN gates remain open; do not treat the entire item as accepted.

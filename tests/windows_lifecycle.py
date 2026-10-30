@@ -85,14 +85,16 @@ def wait_for(predicate, label, timeout=12):
         if predicate():
             return
         time.sleep(.1)
-    raise AssertionError('Timed out: '+label)
+    raise AssertionError('Timed out: '+label+'; pending='+str(agent.consent_pending)+'; stopping='+str(agent.stopping)+'; window='+root.state())
 
 def accept_on_visible_test_window():
+    root.deiconify()
     root.lift()
     root.focus_force()
     agent.accept_button.invoke()
 
 def resume_sharing():
+    commands.put(root.deiconify)
     wait_for(lambda: not agent.consent_pending and agent.root.state()!='iconic', 'previous consent acknowledgment')
     wait_for(lambda: agent.accept_button.cget('state')=='normal' and agent.accept_button.cget('text')=='I consent — start sharing', 'initial consent control available')
     count = len(frames)
@@ -187,7 +189,7 @@ def test_workflow():
                 release_reply.wait(4)
             return response
         agent.server_call=delayed_reply
-        commands.put(agent.accept)
+        commands.put(accept_on_visible_test_window)
         assert granted_reply.wait(8)
         cancelling_generation=agent.consent_generation
         commands.put(lambda:agent.withdraw('keyboard_stop'))
@@ -213,7 +215,7 @@ def test_workflow():
             return response
         agent.server_call=delayed_heartbeat
         assert negative_reply.wait(8)
-        commands.put(agent.accept)
+        commands.put(accept_on_visible_test_window)
         wait_for(agent.gate.allowed,'new explicit consent accepted while old heartbeat reply is held')
         release_heartbeat.set()
         agent.server_call=original_call
@@ -325,6 +327,8 @@ def test_workflow():
         print(json.dumps({'result':'PASS','lifecycle':measurements_report, 'real_jpeg_previews':len(frames), 'foreground_apps':sorted(set(f[0] for f in frames)), 'local_stop_seconds':stop_latencies, 'verified':['initial consent only','MONITORING ACTIVE indicator','single context-sensitive stop control','Escape stop','native capture and application queries cease on stop','teacher stop notification and audit','pending consent cannot restart capture','minimize stops monitoring','fresh explicit re-consent','DPAPI enrollment','real Windows screen and process','rule alert and review','session end stops capture','closing stops monitoring and records withdrawal']}, indent=2))
     except Exception as exc:
         failures.append(str(exc))
+        import traceback
+        print(traceback.format_exc(),flush=True)
         print('FAIL:', exc)
         print('Gate:', agent.gate.accepted, agent.gate.allowed(), 'indicator:', agent.indicator_ready, 'connected:', bool(agent.client and agent.client.connected))
         if session:

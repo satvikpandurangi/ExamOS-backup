@@ -61,6 +61,36 @@ def flow():
         commands.put(agent.accept)
         wait(lambda:len(captures)>count,'fresh consent resumes actual screen capture')
         time.sleep(2)
+        # Combined incoming teacher controls versus real native monitoring.
+        import uuid
+        with open('tests/fixtures/mathematics-question-paper.pdf','rb') as pdf:
+            response=requests.post(base+'/api/papers',headers=headers,files={'pdf':('paper.pdf',pdf,'application/pdf')},data={'title':'Native controls acceptance','subject':'Lifecycle','totalMarks':'1','durationMinutes':'1'},timeout=5)
+        response.raise_for_status()
+        api('/sessions/'+second+'/paper',{'paperId':response.json()['id']})
+        device_headers={'Authorization':'Bearer '+agent.config['token']}
+        launch=requests.post(base+'/api/student/launch',headers=device_headers,json={},timeout=5).json()
+        student=requests.post(base+'/api/student/exchange',json={'code':launch['code']},timeout=5).json()['token']
+        student_headers={'Authorization':'Bearer '+student}
+        requests.get(base+'/api/student/exam',headers=student_headers,timeout=5).raise_for_status()
+        requests.post(base+'/api/student/exam/start',headers=student_headers,json={'focusConsent':False},timeout=5).raise_for_status()
+        saved=requests.post(base+'/api/student/exam/save',headers=student_headers,json={'answers':'Acknowledged native test response','revision':0,'mutationId':str(uuid.uuid4())},timeout=5)
+        saved.raise_for_status()
+        attempt=requests.get(base+'/api/student/exam',headers=student_headers,timeout=5).json()['attempt']
+        path='/sessions/'+second+'/attempts/'+attempt['id']+'/control'
+        command=lambda action:{'action':action,'reason':'Explicit isolated teacher control test','commandId':str(uuid.uuid4())}
+        api(path,command('pause'))
+        commands.put(agent.withdraw)
+        wait(lambda:not agent.gate.allowed() and not agent.consent_pending,'withdrawal during teacher pause')
+        count=len(captures);api(path,command('resume'));time.sleep(2.2)
+        assert not agent.gate.allowed() and len(captures)==count,'Teacher resume restored withdrawn native capture'
+        commands.put(agent.accept);wait(lambda:len(captures)>count,'fresh consent after teacher resume')
+        end=command('end');first_receipt=api(path,end);duplicate=api(path,end)
+        assert first_receipt['receipt']['id']==duplicate['receipt']['id'] and duplicate['duplicate']
+        wait(lambda:not agent.gate.allowed(),'individual teacher end stops native capture')
+        ended=requests.get(base+'/api/student/exam',headers=student_headers,timeout=5).json()['attempt']
+        assert ended['submission_reason']=='teacher_ended' and ended['answers']=='Acknowledged native test response'
+        assert next(s for s in api('/state')['sessions'] if s['id']==second)['status']=='active'
+        print('PASS: real native withdrawal during pause, no resume without fresh consent, replay-safe individual teacher end and acknowledged-answer preservation',flush=True)
         api('/sessions/'+second+'/end',{})
         wait(lambda:not agent.gate.allowed(),'new session ends')
         print(json.dumps({'result':'PASS','actualBackendProcessRestart':True,'actualWindowsSourceCapture':True,'nativeStopObservedSeconds':round(stopped,3),'noSilentReconnectOrCapture':True,'endedSessionPreserved':True,'freshSessionAndConsentRequired':True,'cameraAccessed':False}),flush=True)
