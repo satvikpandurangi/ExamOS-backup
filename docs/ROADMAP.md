@@ -1,6 +1,6 @@
 # Product roadmap
 
-Last planned: 30 October 2026. Baseline source: `300a8eb`. P0-01 is implemented with the tab-scoped recovery boundary recorded in PROJECT-STATUS.md; P0-02 has single-host native Windows repairs/acceptance and open physical-device/packaged checks; P0-03 is in progress. Other items remain planned. Track acceptance against [REQUIREMENTS.md](REQUIREMENTS.md), with evidence in [PROJECT-STATUS.md](PROJECT-STATUS.md).
+Last planned: 30 October 2026. Baseline source: `300a8eb`. P0-01 is implemented with the tab-scoped recovery boundary recorded in PROJECT-STATUS.md; P0-02 has single-host native Windows repairs/acceptance and open physical-device/packaged checks; P0-03 regression infrastructure is implemented and verified. Other items remain planned. Track acceptance against [REQUIREMENTS.md](REQUIREMENTS.md), with evidence in [PROJECT-STATUS.md](PROJECT-STATUS.md).
 
 ## Priority decision
 
@@ -66,9 +66,11 @@ Acceptance:
 
 Dependencies: P0-01 for a complete examination flow. Protocol-only regression checks can run earlier.
 
-### P0-03 — Reproducible development and regression gates (in progress)
+### P0-03 — Reproducible development and regression gates (implemented)
 
 Requirements: REQ-01, REQ-06, REQ-09, REQ-10, REQ-11.
+
+Observed: fresh Windows Node/Python locked setup, native PostgreSQL 16 and CI PostgreSQL 17 fixtures, pure Python rules, Windows/Ubuntu Node 22/24 CI and browser regressions passed. See PROJECT-STATUS.md for exact builds and limits. This infrastructure does not establish native Linux or physical-LAN acceptance.
 
 Work:
 

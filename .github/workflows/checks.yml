@@ -30,6 +30,9 @@ jobs:
       - run: npm test
       - run: python tests/gate_test.py
       - run: python tests/evidence_gate_test.py
+      - run: node tests/clean-bootstrap.mjs
+        env:
+          EXAMOS_BOOTSTRAP_TEST: isolated-clean-checkout
       - name: No generated changes to tracked source
         run: git diff --exit-code
   postgres-browser:

@@ -1,6 +1,6 @@
 # Project status and handoff
 
-Last updated: 30 October 2026. Reviewed application source: `300a8eb0ca70a5fe177af754552c137923e673c2` on `main`. P0-01 is included in handoff `0178aea`. Current continuation is on a feature branch; no shared-main merge or live deployment has been performed.
+Last updated: 31 October 2026. Reviewed application source: `300a8eb0ca70a5fe177af754552c137923e673c2` on `main`. P0-01 is included in handoff `0178aea`. Current continuation is on a feature branch; no shared-main merge or live deployment has been performed.
 
 ## Current product state
 
@@ -69,11 +69,15 @@ Private evidence: `data/tmp/p0-02-windows-resource-release.log`, native PostgreS
 
 Open acceptance: the owner confirmed only one Windows computer is available. A second physical Windows device over the LAN/trusted HTTPS, real LAN partition, actual backend-process restart while the native agent is active, complete packaged lifecycle, and the upstream camera reconnection/detector acceptance remain open. P0-02 and the core requirements remain Partial; neither source screen success nor TLS loopback success closes these gaps.
 
-## P0-03 continuation: repeatable checks (in progress)
+## P0-03: reproducible regression foundation (implemented)
 
 Requirements: REQ-01, REQ-06, REQ-09, REQ-10, REQ-11. Pure consent/cooldown modules now import without Windows/media dependencies; five pure Python tests passed. Generated PDF bytes no longer overwrite the tracked fixture. All database fixtures can opt into a dedicated native `examos_test...` database with explicit disposable-test consent, and each fixture owns/cleans its own random schema.
 
-Nine Node tests passed on both PGlite and a freshly initialized isolated PostgreSQL **16.15** Windows cluster, including migration 007, enrollment concurrency, response revisions/duplicate submissions, PDF attempts and proctor authorization. All fixture schemas were dropped after completed tests. P0-01 failure/recovery and existing exam browser workflows also passed against that native database. These tests use explicitly identified codec fixtures for media API checks, not actual webcam evidence. CI and clean-checkout checks are being established; remote CI is not claimed as passed here.
+Nine Node tests passed on both PGlite and a freshly initialized isolated PostgreSQL **16.15** Windows cluster, including migration 007, enrollment concurrency, response revisions/duplicate submissions, PDF attempts and proctor authorization. All fixture schemas were dropped after completed tests. P0-01 failure/recovery and existing exam browser workflows also passed against that native database. These tests use explicitly identified codec fixtures for media API checks, not actual webcam evidence. Remote CI passed all five jobs on `f09820a`: Node 22/24 on Windows and Ubuntu (build, nine PGlite-backed Node tests, five pure Python tests, clean tracked source), plus PostgreSQL 17 on Ubuntu with the Node suite and four browser workflows. Evidence: https://github.com/sujalkotkar2006-alt/ExamOS/actions/runs/41106830443 . These are CI/SQL/browser checks, not native sensor or Linux agent acceptance.
+
+A fresh detached Windows checkout of `f09820a` passed locked `npm ci`, build and nine tests using separately downloaded/checksummed Node **24.22.2**. A fresh Python **3.13.18** virtual environment installed all locked Windows agent dependencies, passed `pip check` and launched the actual source enrollment UI without connecting/capture. The opt-in `tests/clean-bootstrap.mjs` also exercised the real generated account, authentication rejection, new local database and actual `server/index.js` process restart; the account/history survived and the old session ended. This did not run an active native screen agent during the process restart.
+
+The CI workflow now retains clean bootstrap as a regression gate. Node 24 is the `.nvmrc` default; Node 22/24 are the declared CI matrix, while Node 26.13.0 was also tested locally. Python 3.13 is the Windows build target. No hardware tests run automatically in CI. Local PostgreSQL 16 fixture-schema count returned to zero after tests; no migration was applied to the operational database. Native media restore, actual Linux capture and deployment/load gates remain P1/P2 work.
 
 ## Next action
 
