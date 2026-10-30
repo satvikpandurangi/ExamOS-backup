@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PDFDocument, PDFName } from "pdf-lib";
@@ -114,8 +115,13 @@ test("real PDF upload, assignment, enrolled-device authorization, exam lifecycle
       409,
     );
     assert.equal(
-      (await r("/student/exam/submit", { answers: "Too early" }, browser))
-        .status,
+      (
+        await r(
+          "/student/exam/submit",
+          { answers: "Too early", revision: 0, mutationId: randomUUID() },
+          browser,
+        )
+      ).status,
       409,
     );
     const start = (await r("/student/exam/start", {}, browser)).data;
@@ -129,7 +135,11 @@ test("real PDF upload, assignment, enrolled-device authorization, exam lifecycle
       (
         await r(
           "/student/exam/save",
-          { answers: "1. x = 6\n2. 40 square centimetres" },
+          {
+            answers: "1. x = 6\n2. 40 square centimetres",
+            revision: 0,
+            mutationId: randomUUID(),
+          },
           browser,
         )
       ).status,
@@ -144,15 +154,24 @@ test("real PDF upload, assignment, enrolled-device authorization, exam lifecycle
     const submission = (
       await r(
         "/student/exam/submit",
-        { answers: "1. x = 6\n2. 40 square centimetres" },
+        {
+          answers: "1. x = 6\n2. 40 square centimetres",
+          revision: 1,
+          mutationId: randomUUID(),
+        },
         browser,
       )
     ).data;
     assert.equal(submission.status, "submitted");
     assert.equal(submission.submission_reason, "manual");
     assert.equal(
-      (await r("/student/exam/submit", { answers: "Duplicate" }, browser)).data
-        .id,
+      (
+        await r(
+          "/student/exam/submit",
+          { answers: "Duplicate", revision: 0, mutationId: randomUUID() },
+          browser,
+        )
+      ).data.id,
       submission.id,
     );
     assert.equal((await r("/student/exam/pdf", null, browser)).status, 409);
@@ -203,7 +222,11 @@ test("server deadlines automatically close sessions and preserve saved responses
     await r("/student/exam/start", {}, token);
     await r(
       "/student/exam/save",
-      { answers: "Persisted before deadline" },
+      {
+        answers: "Persisted before deadline",
+        revision: 0,
+        mutationId: randomUUID(),
+      },
       token,
     );
     await db.query(

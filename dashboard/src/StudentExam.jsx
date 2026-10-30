@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { AnswerSync } from "./answerSync.js";
 import PdfViewer from "./PdfViewer.jsx";
 export default function StudentExam() {
   const [token, setToken] = useState(
@@ -13,14 +14,37 @@ export default function StudentExam() {
     [busy, setBusy] = useState(false),
     [saved, setSaved] = useState(""),
     [pdfEpoch, setPdfEpoch] = useState(0);
+  const sync = useRef(null),
+    draftKey = useRef(null),
+    submitting = useRef(false);
+  const clearDrafts = () => {
+    for (const key of Object.keys(sessionStorage))
+      if (key.startsWith("examos-draft:")) sessionStorage.removeItem(key);
+  };
+  const persistDraft = () => {
+    if (!sync.current || !draftKey.current) return;
+    try {
+      sessionStorage.setItem(
+        draftKey.current,
+        JSON.stringify({
+          answers: sync.current.latest,
+          revision: sync.current.revision,
+          expires: sync.current.expires,
+        }),
+      );
+    } catch {
+      setSaved(
+        "Tab recovery unavailable - keep this page open until the server confirms saving",
+      );
+    }
+  };
   const [focusConsent, setFocusConsent] = useState(false);
   const offset = useRef(0),
-    initialized = useRef(false),
-    latestAnswers = useRef("");
-  latestAnswers.current = answers;
+    initialized = useRef(false);
   const api = async (path, body, credential = token) => {
     const r = await fetch("/api/student" + path, {
       method: body ? "POST" : "GET",
+      signal: AbortSignal.timeout(8000),
       headers: {
         Authorization: "Bearer " + credential,
         "Content-Type": "application/json",
@@ -33,8 +57,12 @@ export default function StudentExam() {
         sessionStorage.removeItem("examos-student-token");
         setToken("");
         setData(null);
+        clearDrafts();
+        if (sync.current) sync.current.stopped = true;
       }
-      throw Error(x.error || "Examination request failed");
+      throw Object.assign(Error(x.error || "Examination request failed"), {
+        status: r.status,
+      });
     }
     return x;
   };
@@ -42,9 +70,68 @@ export default function StudentExam() {
     const x = await api("/exam");
     offset.current = new Date(x.serverNow).getTime() - Date.now();
     setData(x);
-    if (!initialized.current) {
-      setAnswers(x.attempt?.answers || "");
+    if (x.attempt)
+      draftKey.current = "examos-draft:" + x.device.id + ":" + x.attempt.id;
+    for (const key of Object.keys(sessionStorage)) {
+      if (!key.startsWith("examos-draft:")) continue;
+      try {
+        if (
+          JSON.parse(sessionStorage.getItem(key)).expires <=
+          Date.now() + offset.current
+        )
+          sessionStorage.removeItem(key);
+      } catch {
+        sessionStorage.removeItem(key);
+      }
+    }
+    if (x.attempt?.status === "started" && !initialized.current) {
+      const attempt = x.attempt;
+      draftKey.current = "examos-draft:" + x.device.id + ":" + attempt.id;
+      let draft;
+      try {
+        draft = JSON.parse(sessionStorage.getItem(draftKey.current));
+      } catch {}
+      const valid =
+        draft &&
+        draft.expires > Date.now() + offset.current &&
+        typeof draft.answers === "string" &&
+        draft.answers.length <= 12000;
+      sync.current = new AnswerSync({
+        send: api,
+        status: setSaved,
+        revision: attempt.answer_revision,
+        answers: attempt.answers,
+        acknowledged: (_, revision, submitted) => {
+          if (
+            submitted ||
+            sync.current.stopped ||
+            sync.current.latest === sync.current.accepted
+          )
+            sessionStorage.removeItem(draftKey.current);
+          else persistDraft();
+        },
+      });
+      sync.current.expires = new Date(attempt.deadline_at).getTime();
+      setSaved("Response saved");
+      if (valid && draft.answers !== attempt.answers) {
+        sync.current.edit(draft.answers);
+        if (draft.revision !== attempt.answer_revision) {
+          sync.current.stopped = true;
+          setSaved(
+            "Recovered unsent response conflicts with the server. Copy it before choosing Use server response.",
+          );
+        } else setSaved("Recovered unsent response - saving automatically");
+      }
+      setAnswers(sync.current.latest);
       initialized.current = true;
+    }
+    if (
+      x.attempt &&
+      (["submitted", "cancelled"].includes(x.attempt.status) ||
+        new Date(x.attempt.deadline_at) <= new Date(x.serverNow))
+    ) {
+      if (sync.current) sync.current.stopped = true;
+      if (draftKey.current) sessionStorage.removeItem(draftKey.current);
     }
     return x;
   }
@@ -68,6 +155,7 @@ export default function StudentExam() {
     if (!code) return;
     history.replaceState({}, "", location.pathname);
     sessionStorage.removeItem("examos-student-token");
+    clearDrafts();
     setToken("");
     api("/exchange", { code }, "")
       .then((x) => {
@@ -139,13 +227,27 @@ export default function StudentExam() {
   }, [token, x?.status, x?.focus_consent, isOpen, remaining === 0]);
   useEffect(() => {
     if (x?.status !== "started" || !isOpen || remaining === 0) return;
-    const timer = setTimeout(() => {
-      api("/exam/save", { answers: latestAnswers.current })
-        .then(() => setSaved("Response saved"))
-        .catch((e) => setSaved("Save failed: " + e.message));
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [answers, x?.status, isOpen, token]);
+    const tick = () => {
+      if (sync.current && !sync.current.stopped)
+        sync.current.flush(submitting.current).then((done) => {
+          if (sync.current.stopped) {
+            submitting.current = false;
+            setBusy(false);
+            if (done) refresh().catch((e) => setError(e.message));
+          }
+        });
+    };
+    const timer = setInterval(tick, 250);
+    return () => clearInterval(timer);
+  }, [token, x?.status, isOpen, remaining === 0]);
+  useEffect(() => {
+    if (remaining === 0 || completed) {
+      if (sync.current) sync.current.stopped = true;
+      if (draftKey.current) sessionStorage.removeItem(draftKey.current);
+      submitting.current = false;
+      setBusy(false);
+    }
+  }, [remaining === 0, completed]);
   return (
     <main className="student-exam">
       <header>
@@ -205,11 +307,11 @@ export default function StudentExam() {
               visible desktop agent.
             </p>
             <p>
-              With your separate evidence consent, detector events and teacher-requested
-              camera checks can include a webcam snapshot and a short silent clip
-              for teacher review. Clips use a temporary memory buffer; no audio
-              or continuous recording is stored. You may stop monitoring at any
-              time from the visible agent.
+              With your separate evidence consent, detector events and
+              teacher-requested camera checks can include a webcam snapshot and
+              a short silent clip for teacher review. Clips use a temporary
+              memory buffer; no audio or continuous recording is stored. You may
+              stop monitoring at any time from the visible agent.
             </p>
             {x?.status !== "started" && !completed && (
               <label>
@@ -289,23 +391,57 @@ export default function StudentExam() {
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      run(() => api("/exam/submit", { answers }));
+                      submitting.current = true;
+                      setBusy(true);
                     }}
                   >
                     <label className="response-label">
                       Your text response (optional)
                       <textarea
+                        readOnly={busy || sync.current?.stopped}
                         value={answers}
                         maxLength={12000}
                         onChange={(e) => {
                           setAnswers(e.target.value);
-                          setSaved("Saving…");
+                          sync.current?.edit(e.target.value);
+                          persistDraft();
                         }}
                         rows={8}
                       />
                     </label>
                     <p role="status">{saved}</p>
-                    <button disabled={busy || remaining === 0}>
+                    <p>
+                      Unsent responses are kept only in this browser tab until
+                      the deadline. Closing the tab clears recovery. They are
+                      not submitted after time expires.
+                    </p>
+                    {sync.current?.stopped && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              "Replace the visible unsent response with the server response? Copy any unsent text first.",
+                            )
+                          )
+                            return;
+                          sync.current = null;
+                          initialized.current = false;
+                          submitting.current = false;
+                          setBusy(false);
+                          if (draftKey.current)
+                            sessionStorage.removeItem(draftKey.current);
+                          refresh().catch((e) => setError(e.message));
+                        }}
+                      >
+                        Use server response
+                      </button>
+                    )}
+                    <button
+                      disabled={
+                        busy || remaining === 0 || sync.current?.stopped
+                      }
+                    >
                       Submit examination
                     </button>
                   </form>

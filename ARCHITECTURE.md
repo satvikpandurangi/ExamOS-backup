@@ -1,5 +1,7 @@
 # ExamOS architecture
 
+Product scope and acceptance are defined in [docs/PROBLEM-STATEMENT.md](docs/PROBLEM-STATEMENT.md) and [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md). This document describes current code. Future roles, Linux adapters, policies, controls and deployment work are planned in [docs/ROADMAP.md](docs/ROADMAP.md), not implemented architecture. Current observed checks are in [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md).
+
 This document describes the existing application; no additional service is required.
 
 * **Windows student:** Python/Tk, Windows DPAPI enrollment credentials, Socket.IO, OpenCV YOLOX object counts, primary-screen previews, foreground executable names and PyAV silent event clips.
@@ -7,7 +9,13 @@ This document describes the existing application; no additional service is requi
 * **Backend:** Node.js/Express and Socket.IO on one origin. Teacher operations and device messages are serialized per teacher. Device credentials are random tokens stored hashed in PostgreSQL; teacher login uses bcrypt and expiring JWTs.
 * **Database:** numbered transactional migrations in `server/migrations`. Local mode uses persistent PGlite (PostgreSQL engine); dedicated PostgreSQL is supported through `pg`. Production deployment of a dedicated database and multiple server replicas needs separate validation.
 
-## Evidence path
+## Student response persistence
+
+Migration 007 adds answer revisions and last mutation IDs. Save and submit requests send the accepted revision and a UUID mutation ID. Conditional updates reject stale writes; retrying the last accepted save returns its revision. A completed submission returns the canonical receipt without overwriting answers. The student page serializes writes, saves after one idle second or five seconds of continuous editing, and retries transport/server failures with capped backoff. Conflicts require explicit review rather than an automatic overwrite.
+
+Unsent text is scoped to device/attempt in same-tab sessionStorage, with a deadline expiry and cleanup on completion, authentication loss or fresh launch. This browser storage is not encrypted, does not provide closed-tab recovery, and never bypasses server deadlines. Monitoring consent remains independent. See docs/PROJECT-STATUS.md for observed P0-01 acceptance.
+
+## Evidence transport
 
 The explicitly consented camera worker validates real frames, encodes JPEG and creates a stable client capture UUID. `agent/evidence_uploads.py` stores a bounded Windows-user-DPAPI encrypted outbox and sends the real base64 JPEG over the existing authenticated `proctor-event` Socket.IO event. The backend validates the device/session/started examination, consent, timestamp and JPEG; actual bytes and the evidence catalog are stored together in PostgreSQL. Private database bytea storage is intentional; there is no publicly served evidence directory.
 

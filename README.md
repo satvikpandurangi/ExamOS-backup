@@ -1,5 +1,15 @@
 # ExamOS
 
+## Product direction and project memory
+
+The product baseline is the [Smart Classroom Monitoring and Examination Integrity System problem statement](docs/PROBLEM-STATEMENT.md). Every implementation change and progress claim must map to the [requirements and acceptance criteria](docs/REQUIREMENTS.md).
+
+Start with the [prioritized roadmap](docs/ROADMAP.md), [current project status](docs/PROJECT-STATUS.md), and [persistent project memory](docs/PROJECT-MEMORY.md). [AGENTS.md](AGENTS.md) gives future coding sessions the project contract; [CONTRIBUTING.md](CONTRIBUTING.md) defines the change checklist. The [documentation index](docs/README.md) links the complete project guides, including [testing](docs/TESTING.md).
+
+The current implementation is a Windows-focused single-server prototype. Linux, focused live-screen inspection, full classroom roles, richer policy controls and deployment acceptance remain planned work. macOS and cloud administration are optional extensions. See project status for independently rerun checks; the publication report below preserves upstream hardware results and incomplete checks.
+
+## Existing application and publication notes
+
 Current source publication: see [CURRENT-VERIFICATION.md](CURRENT-VERIFICATION.md) for the latest upload repair and its incomplete packaged acceptance checks. It takes precedence over historical test claims below. See [ARCHITECTURE.md](ARCHITECTURE.md) and [REPOSITORY-DISTRIBUTION.md](REPOSITORY-DISTRIBUTION.md) for component boundaries, private storage and source/binary contents.
 
 Working LAN-first examination prototype: a Windows Python student agent, Express + Socket.IO service, React instructor dashboard, and PostgreSQL schema/migrations. No paid services, hosted dependencies at runtime, or seeded product data.

@@ -334,18 +334,58 @@ export function installExams({
       throw problem(400, "Responses must be at most 12,000 characters");
     return body.answers;
   }
+  function writeVersion(body) {
+    const revision = body.revision;
+    if (
+      !Number.isSafeInteger(revision) ||
+      revision < 0 ||
+      typeof body.mutationId !== "string" ||
+      !uuid(body.mutationId)
+    )
+      throw problem(
+        400,
+        "A response revision and mutation ID are required. Reload the examination page.",
+      );
+    return revision;
+  }
   student.post(
     "/exam/save",
     studentRoute(async (req, res) => {
       const a = await assignment(req);
       requireOpen(a);
+      const revision = writeVersion(req.body);
+      const current = await attempt(a, req.device.id);
+      if (
+        current?.last_mutation_id === req.body.mutationId &&
+        current.answers !== answers(req.body)
+      )
+        throw problem(
+          409,
+          "This request ID was already used for a different response.",
+        );
+      if (
+        current?.status === "started" &&
+        new Date(current.deadline_at) > new Date() &&
+        current.last_mutation_id === req.body.mutationId &&
+        current.answers === answers(req.body)
+      )
+        return res.json({ ok: true, revision: current.answer_revision });
       const r = await db.query(
-        "UPDATE exam_attempts SET answers=$3 WHERE session_id=$1 AND device_id=$2 AND status='started' AND deadline_at>now() RETURNING id",
-        [a.session_id, req.device.id, answers(req.body)],
+        "UPDATE exam_attempts SET answers=$3,answer_revision=answer_revision+1,last_mutation_id=$5 WHERE session_id=$1 AND device_id=$2 AND status='started' AND deadline_at>now() AND answer_revision=$4 RETURNING answer_revision",
+        [
+          a.session_id,
+          req.device.id,
+          answers(req.body),
+          revision,
+          req.body.mutationId,
+        ],
       );
       if (!r.rows.length)
-        throw problem(409, "The examination is not in progress");
-      res.json({ ok: true });
+        throw problem(
+          409,
+          "Response conflict or examination ended. Reload the server response before continuing.",
+        );
+      res.json({ ok: true, revision: r.rows[0].answer_revision });
     }),
   );
   student.post(
@@ -355,9 +395,16 @@ export function installExams({
         x = await attempt(a, req.device.id);
       if (x?.status === "submitted") return res.json(x);
       requireOpen(a);
+      const revision = writeVersion(req.body);
       const r = await db.query(
-        "UPDATE exam_attempts SET status='submitted',submitted_at=now(),submission_reason='manual',answers=$3 WHERE session_id=$1 AND device_id=$2 AND status='started' AND deadline_at>now() RETURNING *",
-        [a.session_id, req.device.id, answers(req.body)],
+        "UPDATE exam_attempts SET status='submitted',submitted_at=now(),submission_reason='manual',answers=$3,answer_revision=answer_revision+1,last_mutation_id=$5 WHERE session_id=$1 AND device_id=$2 AND status='started' AND deadline_at>now() AND answer_revision=$4 RETURNING *",
+        [
+          a.session_id,
+          req.device.id,
+          answers(req.body),
+          revision,
+          req.body.mutationId,
+        ],
       );
       if (!r.rows.length)
         throw problem(

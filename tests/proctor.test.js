@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { io } from "socket.io-client";
 import jpeg from "jpeg-js";
-import {randomUUID} from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { fixture, actualPaper, uploadForm } from "./exam-fixture.mjs";
 test("consented proctor observations, private evidence, review, retention and all shutdown boundaries", async () => {
   const f = await fixture(),
@@ -70,9 +70,9 @@ test("consented proctor observations, private evidence, review, retention and al
       60,
     ).data;
     const observation = {
-      clientEventId:randomUUID(),
-      deviceId:d.id,
-      studentId:d.id,
+      clientEventId: randomUUID(),
+      deviceId: d.id,
+      studentId: d.id,
       sessionId: sid,
       category: "phone_detected",
       detail: { phoneCount: 1, privateMessage: "must not be stored" },
@@ -93,12 +93,33 @@ test("consented proctor observations, private evidence, review, retention and al
     assert.ok(saved.ok);
     await notified;
     const id = saved.id;
-    const replay=await call('proctor-event',observation);
-    assert.equal(replay.id,id); assert.equal(replay.duplicate,true);
-    assert.equal(replay.evidenceId,saved.evidenceId);
-    assert.equal((await call('proctor-event',{...observation,category:'multiple_people'})).status,409);
-    assert.equal((await call('proctor-event',{...observation,deviceId:randomUUID()})).status,403);
-    assert.equal((await f.db.query("SELECT count(*)::int AS n FROM proctor_events WHERE detail->>'clientEventId'=$1",[observation.clientEventId])).rows[0].n,1);
+    const replay = await call("proctor-event", observation);
+    assert.equal(replay.id, id);
+    assert.equal(replay.duplicate, true);
+    assert.equal(replay.evidenceId, saved.evidenceId);
+    assert.equal(
+      (
+        await call("proctor-event", {
+          ...observation,
+          category: "multiple_people",
+        })
+      ).status,
+      409,
+    );
+    assert.equal(
+      (await call("proctor-event", { ...observation, deviceId: randomUUID() }))
+        .status,
+      403,
+    );
+    assert.equal(
+      (
+        await f.db.query(
+          "SELECT count(*)::int AS n FROM proctor_events WHERE detail->>'clientEventId'=$1",
+          [observation.clientEventId],
+        )
+      ).rows[0].n,
+      1,
+    );
     assert.equal((await r("/proctor/events/" + id + "/evidence")).status, 401);
     assert.equal(
       (await r("/proctor/events/" + id + "/evidence", null, f.otherToken))
@@ -394,7 +415,7 @@ test("consented proctor observations, private evidence, review, retention and al
     await cam(true, true);
     const extra = await call("proctor-event", {
       ...observation,
-      clientEventId:randomUUID(),
+      clientEventId: randomUUID(),
       category: "multiple_people",
     });
     assert.ok(extra.ok);
@@ -437,7 +458,11 @@ test("consented proctor observations, private evidence, review, retention and al
       (
         await r(
           "/student/exam/submit",
-          { answers: "Actual persisted test response" },
+          {
+            answers: "Actual persisted test response",
+            revision: 0,
+            mutationId: randomUUID(),
+          },
           student,
         )
       ).status,
